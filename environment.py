@@ -13,7 +13,6 @@ from datetime import timedelta
 from time import sleep
 import getpass
 import subprocess
-import scheduler as epoxpy_flow_schedulers
 
 
 def _fetch(user=None):
@@ -69,7 +68,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn=1
-        walltime = timedelta(days=14)
+        walltime = timedelta(hours=1)
         js = super(fryEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline('#SBATCH --job-name={}'.format(_id))
@@ -109,7 +108,7 @@ class r2Environment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn=1
-        walltime = timedelta(days=3)
+        walltime = timedelta(hours=1)
         js = super(r2Environment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline('#SBATCH --job-name={}'.format(_id))
@@ -148,7 +147,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn=1
-        walltime = timedelta(days=2)
+        walltime = timedelta(hours=1)
         js = super(kestrelEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline('#SBATCH --job-name={}'.format(_id))
