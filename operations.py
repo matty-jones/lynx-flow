@@ -2,10 +2,23 @@ import subprocess
 import inspect
 
 
-def pipeline(job):
-    print("Running full pipeline for", job)
-    generate(job)
-    simulate(job)
+def auto(job):
+    "This is a meta-operation to execute multiple operations."
+    from project import LynxProject
+    import logging
+    project = LynxProject()
+    logging.info("Running meta operation 'auto' for job '{}'.".format(job))
+    for i in range(10):
+        next_op = project.next_operation(job)
+        if next_op is None:
+            logging.info("No next operation, exiting.")
+            break
+        else:
+            logging.info("Running next operation '{}'...".format(next_op))
+            func = globals()[next_op.name]
+            func(job)
+    else:
+        logging.warning("auto: Reached max # operations limit!")
 
 
 def generate(job):
