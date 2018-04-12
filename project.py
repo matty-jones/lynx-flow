@@ -5,8 +5,8 @@ class LynxProject(flow.FlowProject):
     def __init__(self, *args, **kwargs):
         super(LynxProject, self).__init__(*args, **kwargs)
         self.add_operation(
-            name='pipeline',
-            cmd=lambda job: "python operations.py pipeline {}".format(job),
+            name='auto',
+            cmd=lambda job: "python operations.py auto {}".format(job),
             post=[LynxProject.generated]
         )
         self.add_operation(
@@ -27,7 +27,7 @@ class LynxProject(flow.FlowProject):
 
     @flow.staticlabel()
     def simulated(job):
-        return job.isfile('output_traj.gsd')
+        return job.isfile('output_final.gsd')
 
 
 if __name__ == '__main__':
