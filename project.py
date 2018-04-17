@@ -6,7 +6,6 @@ class LynxProject(flow.FlowProject):
     def __init__(self, *args, **kwargs):
         super(LynxProject, self).__init__(*args, **kwargs)
         env = flow.get_environment()
-        print(env)
         self.add_operation(
             name='auto',
             cmd=lambda job: "python operations.py auto {}".format(job),
