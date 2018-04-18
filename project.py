@@ -8,12 +8,12 @@ class LynxProject(flow.FlowProject):
         env = flow.get_environment()
         self.add_operation(
             name='auto',
-            cmd=lambda job: "python operations.py auto {}".format(job),
+            cmd=lambda job: "python -u operations.py auto {}".format(job),
             post=[LynxProject.generated]
         )
         #self.add_operation(
         #    name='generate',
-        #    cmd=lambda job: "python operations.py generate {}".format(job),
+        #    cmd=lambda job: "python -u operations.py generate {}".format(job),
         #    post=[LynxProject.generated]
         #)
         #self.add_operation(
