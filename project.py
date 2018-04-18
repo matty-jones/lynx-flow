@@ -1,6 +1,8 @@
 import signac
 import flow
 import environment
+import shutil
+import os
 
 
 class LynxProject(flow.FlowProject):
@@ -33,9 +35,18 @@ class LynxProject(flow.FlowProject):
                 raise SystemError("Found {} parent jobs, instead of one. Check"
                                   " the workspace for inconsistencies.".format(
                                       len(parent_jobs)))
-            return LynxProject.generated(parent_job)
-        else:
-            return job.isfile('output.hoomdxml')
+            parent_completed = LynxProject.generated(parent_job)
+            if parent_completed:
+                # Copy the generated morphology
+                shutil.copyfile(os.path.join(parent_job._wd, 'output.hoomdxml'),
+                                os.path.join(job._wd, 'output.hoomdxml'))
+                # Also copy the generate stdout
+                shutil.copyfile(os.path.join(parent_job._wd,
+                                             'generate_stdout.log'),
+                                os.path.join(job._wd, 'generate_stdout.log'))
+            else:
+                return False
+        return job.isfile('output.hoomdxml')
 
     @flow.staticlabel()
     def simulated(job):

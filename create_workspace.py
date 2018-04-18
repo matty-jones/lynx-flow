@@ -25,7 +25,7 @@ def get_sim_parameters():
     parameters = OrderedDict()
     # Simulate Parameters
     parameters['temperature'] = [633, 733]
-    parameters['run_time'] = [1E6]
+    parameters['run_time'] = [1E2]
     parameters['timestep'] = [1E-3]
     parameters['job_type'] = ['child']
     return list(parameters.keys()),list(itertools.product(
