@@ -16,7 +16,7 @@ def get_gen_parameters():
     parameters['gas_composition'] = ["{'C2H6':1}"]
     parameters['gas_density'] = [0.001356]
     parameters['forcefield'] = ['FF_opls_uff']
-    parameters['stage'] = ['parent']
+    parameters['job_type'] = ['parent']
     return list(parameters.keys()),list(itertools.product(
         *parameters.values()))
 
@@ -27,7 +27,7 @@ def get_sim_parameters():
     parameters['temperature'] = [633, 733]
     parameters['run_time'] = [1E6]
     parameters['timestep'] = [1E-3]
-    parameters['stage'] = ['child']
+    parameters['job_type'] = ['child']
     return list(parameters.keys()),list(itertools.product(
         *parameters.values()))
 
@@ -39,10 +39,11 @@ if __name__ == "__main__":
     # Create the generate jobs
     for gen_params in gen_param_combinations:
         parent_statepoint = dict(zip(gen_param_names, gen_params))
-        project.open_job(parent_statepoint).init()
+        parent_job = project.open_job(parent_statepoint)
+        parent_job.init()
         for sim_params in sim_param_combinations:
             child_statepoint = copy.deepcopy(parent_statepoint)
             child_statepoint.update(dict(zip(sim_param_names, sim_params)))
-            child_statepoint['parent_statepoint'] = parent_statepoint
+            child_statepoint['parent_statepoint'] = parent_job.statepoint()
             project.open_job(child_statepoint).init()
     project.write_statepoints()
