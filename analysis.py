@@ -79,9 +79,9 @@ def plot_rdf(project, type1_name, type2_name, r_max=20, stride=50):
                 frame_rdf_title = 'RDF_' + type1_name + '-' + type2_name + '_{:03d}'.format(frame_no)
                 with open(os.path.join(save_dir, frame_rdf_title + '.csv'), "w+") as csv_file:
                     writer = csv.writer(csv_file)
-                    writer.writerow('r', 'g(r)')
+                    writer.writerow(['r', 'g(r)'])
                     for r, g_r in zip(frame_rdf.getR(), frame_rdf.getRDF()):
-                        writer.writerow(r, g_r)
+                        writer.writerow([r, g_r])
                 plt.figure()
                 plt.title(frame_rdf_title)
                 plt.plot(frame_rdf.getR(), frame_rdf.getRDF())
@@ -93,9 +93,9 @@ def plot_rdf(project, type1_name, type2_name, r_max=20, stride=50):
         av_rdf_title = 'RDF_' + type1_name + '-' + type2_name + '_Av'
         with open(os.path.join(save_dir, av_rdf_title + '.csv'), "w+") as csv_file:
             writer = csv.writer(csv_file)
-            writer.writerow('r', 'g(r)')
+            writer.writerow(['r', 'g(r)'])
             for r, g_r in zip(av_rdf.getR(), av_rdf.getRDF()):
-                writer.writerow(r, g_r)
+                writer.writerow([r, g_r])
         plt.figure()
         plt.title(av_rdf_title)
         plt.plot(av_rdf.getR(), av_rdf.getRDF())
