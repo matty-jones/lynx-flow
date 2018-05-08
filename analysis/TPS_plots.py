@@ -4,6 +4,12 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 import numpy as np
 
+'''
+This module plots the TPS progression for each job in the workspace.
+Evoliutions are hardcoded in and show the evolution in the TPS as a function of
+temperature for each z_reactor_size at a given crystal dimension.
+Files are output to the output_figures directory in lynx-flow's root.
+'''
 
 def extract_av_tps(file_name):
     with open(file_name, 'r') as o_file:

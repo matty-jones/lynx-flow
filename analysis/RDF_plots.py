@@ -9,6 +9,18 @@ import matplotlib.pylab as pl
 import numpy as np
 
 
+'''
+This module plots several RDFs for each job in the workspace.
+10 RDFs are plotted over time as the simulation progresses (data taken from the
+trajectory GSD), as well as an aggregated RDF describing the average over the
+entire simulation.
+Additionally, csv files are written for every RDF to permit subsequent analysis
+All 22 files (2 * 11) are written for each metal atom in the system (Mo, Nb,
+Te, V).
+'''
+
+
+
 def plot_rdf(project, type1_name, type2_name, r_max=20, stride=50):
     for job in project:
         print("Considering job", job.ws)
