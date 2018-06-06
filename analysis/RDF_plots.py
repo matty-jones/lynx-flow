@@ -24,7 +24,7 @@ Te, V).
 def plot_z(project, type_name):
     for job in project:
         print("Considering job", job.ws)
-        if int(job.statepoint.dimensions.split('x')[2]) == 1:
+        if int(job.statepoint.dimensions.split('x')[2]) in [1,2]:
             continue
         print(job.statepoint.dimensions)
         print(job.statepoint)
@@ -38,35 +38,46 @@ def plot_z(project, type_name):
         atom_type = trajectory[0].particles.types.index(type_name)
         final_frame = trajectory[-1]
         atom_posns = final_frame.particles.position[np.where(final_frame.particles.typeid == atom_type)]
-        n_peaks = 0
-        target_peaks = int(job.statepoint.dimensions.split('x')[2]) * 2
+        n_troughs = 0
+        target_troughs = (int(job.statepoint.dimensions.split('x')[2]) - 1) * 2
         n_bins = 20
         bins = None
         n = None
-        while n_peaks < target_peaks:
-            print("Currently found", n_peaks, "of", target_peaks, "peaks...")
+        while n_troughs < target_troughs:
+            print("Currently found", n_troughs, "of", target_troughs, "troughs...")
             n, bins, patches = plt.hist(atom_posns[:,2], bins = np.linspace(-job.statepoint.crystal_separation, job.statepoint.crystal_separation, n_bins))
-            peaks = argrelextrema(n, np.greater)[0]
-            n_peaks = len(peaks)
-            #if n_peaks == target_peaks:
-            #    break
+            troughs = argrelextrema(n, np.less)[0]
+            n_troughs = len(troughs)
+            smoothed_n = gaussian_filter(n, 1.0)
+            plt.figure()
+            plt.title(" ".join(["Z-separation of", type_name]))
+            plt.plot(bins[:-1], n)
+            plt.plot(bins[:-1], smoothed_n, c='r')
+            for trough in troughs:
+                plt.axvline(bins[trough], c='k')
+            plt.xlabel('Z-separation (Ang)')
+            plt.ylabel('Frequency (Arb. U.)')
+            plt.show()
+            #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
+            plt.close()
+
             print("Increasing n_bins from", n_bins, "to", n_bins*2)
             n_bins *= 2
-        print("Found all", n_peaks, "peaks:")
-        print(peaks)
+        print("Found all", n_troughs, "troughs:")
+        print(troughs)
         smoothed_n = gaussian_filter(n, 1.0)
-        #plt.title(" ".join(["Z-separation of", type_name]))
-        #plt.plot(bins[:-1], n)
-        #plt.plot(bins[:-1], smoothed_n, c='r')
-        #for peak in peaks:
-        #    plt.axvline(bins[peak], c='k')
-        #plt.xlabel('Z-separation (Ang)')
-        #plt.ylabel('Frequency (Arb. U.)')
-        #plt.show()
-        ##plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
-        #plt.close()
+        plt.title(" ".join(["Z-separation of", type_name]))
+        plt.plot(bins[:-1], n)
+        plt.plot(bins[:-1], smoothed_n, c='r')
+        for trough in troughs:
+            plt.axvline(bins[trough], c='k')
+        plt.xlabel('Z-separation (Ang)')
+        plt.ylabel('Frequency (Arb. U.)')
+        plt.show()
+        #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
+        plt.close()
         print("")
-        print("Peak separations =", [bins[x+1] for x in peaks])
+        print("Trough positions =", [bins[x+1] for x in troughs])
         exit()
 
 
