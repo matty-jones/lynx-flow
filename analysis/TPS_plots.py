@@ -45,7 +45,7 @@ def plot_tpses(project):
         plt.ylabel('TPS (Arb. U.)')
         plt.title('Dims = ' + dimension)
         plt.legend(prop={'size': 10})
-        plt.savefig('./output_figures/tps_' + dimension + '.pdf')
+        plt.savefig('../output_figures/tps_' + dimension + '.pdf')
         plt.close()
 
 
