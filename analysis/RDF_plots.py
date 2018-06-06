@@ -7,6 +7,8 @@ import signac
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 import numpy as np
+from scipy.signal import argrelextrema
+from scipy.ndimage import gaussian_filter
 
 
 '''
@@ -19,6 +21,53 @@ All 22 files (2 * 11) are written for each metal atom in the system (Mo, Nb,
 Te, V).
 '''
 
+def plot_z(project, type_name):
+    for job in project:
+        print("Considering job", job.ws)
+        if int(job.statepoint.dimensions.split('x')[2]) == 1:
+            continue
+        print(job.statepoint.dimensions)
+        print(job.statepoint)
+        print("".join(["Calculating Z-distribution for ", type_name, "..."]))
+        save_dir = os.path.join(job.ws, 'RDFs')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        gsd_file_name = os.path.join(job.ws, 'output_traj.gsd')
+        gsd_file = gsd.fl.GSDFile(gsd_file_name, 'rb')
+        trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
+        atom_type = trajectory[0].particles.types.index(type_name)
+        final_frame = trajectory[-1]
+        atom_posns = final_frame.particles.position[np.where(final_frame.particles.typeid == atom_type)]
+        n_peaks = 0
+        target_peaks = int(job.statepoint.dimensions.split('x')[2]) * 2
+        n_bins = 20
+        bins = None
+        n = None
+        while n_peaks < target_peaks:
+            print("Currently found", n_peaks, "of", target_peaks, "peaks...")
+            n, bins, patches = plt.hist(atom_posns[:,2], bins = np.linspace(-job.statepoint.crystal_separation, job.statepoint.crystal_separation, n_bins))
+            peaks = argrelextrema(n, np.greater)[0]
+            n_peaks = len(peaks)
+            #if n_peaks == target_peaks:
+            #    break
+            print("Increasing n_bins from", n_bins, "to", n_bins*2)
+            n_bins *= 2
+        print("Found all", n_peaks, "peaks:")
+        print(peaks)
+        smoothed_n = gaussian_filter(n, 1.0)
+        #plt.title(" ".join(["Z-separation of", type_name]))
+        #plt.plot(bins[:-1], n)
+        #plt.plot(bins[:-1], smoothed_n, c='r')
+        #for peak in peaks:
+        #    plt.axvline(bins[peak], c='k')
+        #plt.xlabel('Z-separation (Ang)')
+        #plt.ylabel('Frequency (Arb. U.)')
+        #plt.show()
+        ##plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
+        #plt.close()
+        print("")
+        print("Peak separations =", [bins[x+1] for x in peaks])
+        exit()
 
 
 def plot_rdf(project, type1_name, type2_name, r_max=20, stride=50):
@@ -90,5 +139,8 @@ def plot_rdf(project, type1_name, type2_name, r_max=20, stride=50):
 if __name__ == "__main__":
     project = signac.get_project('../')
     for type2 in ['Mo', 'V', 'Nb', 'Te']:
+        # Plot distribution of z-values for atoms
+        plot_z(project, type2)
+        exit()
         # Plot RDF variation
         plot_rdf(project, 'C', type2)
