@@ -39,20 +39,28 @@ def plot_z(project, type_name):
         final_frame = trajectory[-1]
         atom_posns = final_frame.particles.position[np.where(final_frame.particles.typeid == atom_type)]
         n_troughs = 0
+        # The number of peaks is 2x the z-dimension given.
+        # The number of troughs is therefore 2x the (z-dimension -1)
+        # Note that the middle bit is too flat to be detected so it usually isn't.
         target_troughs = (int(job.statepoint.dimensions.split('x')[2]) - 1) * 2
+        # Start with a guess of 20 bins to try and find the right number of troughs
         n_bins = 20
         bins = None
         n = None
         while n_troughs < target_troughs:
             print("Currently found", n_troughs, "of", target_troughs, "troughs...")
             n, bins, patches = plt.hist(atom_posns[:,2], bins = np.linspace(-job.statepoint.crystal_separation, job.statepoint.crystal_separation, n_bins))
+            # Recreate the bins so that the n value for each corresponds to the midpoint of the bin
+            bins = (bins[1:] + bins[:-1]) / 2.0
+            # Find all troughs
             troughs = argrelextrema(n, np.less)[0]
             n_troughs = len(troughs)
+            # The Gaussian filter is just to help visualize what's going on with the histogram
             smoothed_n = gaussian_filter(n, 1.0)
             plt.figure()
             plt.title(" ".join(["Z-separation of", type_name]))
-            plt.plot(bins[:-1], n)
-            plt.plot(bins[:-1], smoothed_n, c='r')
+            plt.plot(bins, n)
+            plt.plot(bins, smoothed_n, c='r')
             for trough in troughs:
                 plt.axvline(bins[trough], c='k')
             plt.xlabel('Z-separation (Ang)')
@@ -60,7 +68,8 @@ def plot_z(project, type_name):
             plt.show()
             #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
             plt.close()
-
+            # We haven't yet found the right number of troughs, therefore we need to step up the
+            # bin resolution, which we can do by doubling the current number of bins
             print("Increasing n_bins from", n_bins, "to", n_bins*2)
             n_bins *= 2
         print("Found all", n_troughs, "troughs:")
