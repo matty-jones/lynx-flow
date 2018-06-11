@@ -6,13 +6,20 @@ import time as T
 
 
 def generate(job):
-    generate_flags = {'stoichiometry': '-s', 'dimensions': '-d',
-                      'template': '-t', 'crystal_separation': '-c',
-                      'z_reactor_size': '-z', 'gas_composition': '-gc',
-                      'gas_num_mol': '-gn', 'gas_density': '-gd',
-                      'forcefield': '-f', 'integrate_crystal': '-i',
-                      'signac': '-sig'}
-    with job, open('generate_stdout.log', 'w+') as generate_stdout:
+    generate_flags = {
+        "stoichiometry": "-s",
+        "dimensions": "-d",
+        "template": "-t",
+        "crystal_separation": "-c",
+        "z_reactor_size": "-z",
+        "gas_composition": "-gc",
+        "gas_num_mol": "-gn",
+        "gas_density": "-gd",
+        "forcefield": "-f",
+        "integrate_crystal": "-i",
+        "signac": "-sig",
+    }
+    with job, open("generate_stdout.log", "w+") as generate_stdout:
         # Always run with the signac flag -sig
         job_command = ["lynx-create-morph", "-sig"]
         for flag in job.sp.keys():
@@ -23,8 +30,8 @@ def generate(job):
 
 
 def simulate(job):
-    simulate_flags = {'temperature': '-t', 'run_time': '-r', 'timestep': '-s'}
-    with job, open('hoomd_stdout.log', 'w+') as hoomd_stdout:
+    simulate_flags = {"temperature": "-t", "run_time": "-r", "timestep": "-s"}
+    with job, open("hoomd_stdout.log", "w+") as hoomd_stdout:
         job_command = ["lynx-run-hoomd"]
         for flag in job.sp.keys():
             if flag in simulate_flags:
@@ -36,4 +43,5 @@ def simulate(job):
 
 if __name__ == "__main__":
     import flow
+
     flow.run()
