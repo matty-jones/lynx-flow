@@ -10,57 +10,62 @@ class LynxProject(flow.FlowProject):
         super(LynxProject, self).__init__(*args, **kwargs)
         env = flow.get_environment()
         self.add_operation(
-            name='generate',
+            name="generate",
             cmd=lambda job: "python -u operations.py generate {}".format(job),
             pre=[LynxProject.parent_job],
-            post=[LynxProject.generated]
+            post=[LynxProject.generated],
         )
         self.add_operation(
-            name='simulate',
+            name="simulate",
             cmd=lambda job: "python -u operations.py simulate {}".format(job),
             pre=[LynxProject.generated],
-            post=[LynxProject.simulated]
+            post=[LynxProject.simulated],
         )
 
     @flow.staticlabel()
     def generated(job):
-        if job.sp.job_type == 'child':
+        if job.sp.job_type == "child":
             # Get current project
-            project = signac.get_project('./')
+            project = signac.get_project("./")
             # Find all jobs with the same statepoint as the parent
             parent_jobs = project.find_jobs(job.sp.parent_statepoint)
             if len(parent_jobs) == 1:
                 parent_job = parent_jobs.next()
             else:
-                raise SystemError("Found {} parent jobs, instead of one. Check"
-                                  " the workspace for inconsistencies.".format(
-                                      len(parent_jobs)))
+                raise SystemError(
+                    "Found {} parent jobs, instead of one. Check"
+                    " the workspace for inconsistencies.".format(len(parent_jobs))
+                )
             parent_completed = LynxProject.generated(parent_job)
             if parent_completed:
                 # Copy the generated morphology
-                shutil.copyfile(os.path.join(parent_job._wd, 'output.hoomdxml'),
-                                os.path.join(job._wd, 'output.hoomdxml'))
+                shutil.copyfile(
+                    os.path.join(parent_job._wd, "output.hoomdxml"),
+                    os.path.join(job._wd, "output.hoomdxml"),
+                )
                 # Also copy the generate stdout
-                shutil.copyfile(os.path.join(parent_job._wd,
-                                             'generate_stdout.log'),
-                                os.path.join(job._wd, 'generate_stdout.log'))
+                shutil.copyfile(
+                    os.path.join(parent_job._wd, "generate_stdout.log"),
+                    os.path.join(job._wd, "generate_stdout.log"),
+                )
             else:
                 return False
-        return job.isfile('output.hoomdxml')
+        return job.isfile("output.hoomdxml")
 
     @flow.staticlabel()
     def simulated(job):
-        if job.sp.job_type == 'parent':
+        if job.sp.job_type == "parent":
             return True
         else:
-            return job.isfile('output_final.gsd')
+            return job.isfile("output_final.gsd")
 
     @flow.staticlabel()
     def parent_job(job):
-        if job.sp.job_type == 'parent':
+        if job.sp.job_type == "parent":
             return True
-        elif job.sp.job_type == 'child':
+        elif job.sp.job_type == "child":
             return False
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     LynxProject().main()
