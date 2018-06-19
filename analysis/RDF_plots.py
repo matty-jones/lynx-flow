@@ -35,6 +35,10 @@ def find_crystal_extents_z(project, type_name, args):
         if args.job is not None:
             if job.get_id() != args.job:
                 continue
+        # Skip if this is a parent job
+        if "job_type" in job.sp:
+            if job.sp.job_type == "parent":
+                continue
         print("Considering job", job.ws)
         print("".join(["Calculating Z-distribution for ", type_name, "..."]))
         # print(job.statepoint.dimensions)
