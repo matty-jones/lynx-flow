@@ -39,17 +39,22 @@ def get_first_peak(project, metal=None, layers=None, z_size=None):
         plt.xlabel("r (Ang)")
         plt.ylabel("RDF (Arb. U.)")
         figure_file = csv_file_location.replace(".csv", "_smooth.pdf")
-        plt.savefig(figure_file)
-        plt.close()
         peaks = argrelextrema(smoothed_RDF, np.greater)
+        title = "Peaks @ [{:.2f}, {:.2f}]".format(*[RDF_Data["r"].values[x] for x in peaks[0][:2]])
+        plt.title(title)
         try:
-            first_peak = [RDF_Data["r"].values[peaks[0][0]], smoothed_RDF[peaks[0][0]]]
             # Update job document with the first peak data
+            first_peak = [RDF_Data["r"].values[peaks[0][0]], smoothed_RDF[peaks[0][0]]]
             job.document["".join(["RDF_first_peak_", metal])] = first_peak
+            # Update job document with the second peak data
+            second_peak = [RDF_Data["r"].values[peaks[0][1]], smoothed_RDF[peaks[0][1]]]
+            job.document["".join(["RDF_second_peak_", metal])] = second_peak
         except IndexError:
-            print("No maximum found")
+            print("Only", len(peaks), "peaks found.")
             print("Check", figure_file, "for more details")
             pass
+        plt.savefig(figure_file)
+        plt.close()
 
 
 if __name__ == "__main__":
