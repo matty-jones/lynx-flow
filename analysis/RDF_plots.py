@@ -39,7 +39,7 @@ def find_crystal_extents_z(project, type_name, args):
         if "job_type" in job.sp:
             if job.sp.job_type == "parent":
                 continue
-        print("Considering job", job.ws)
+        print("\nConsidering job", job.ws)
         print("".join(["Calculating Z-distribution for ", type_name, "..."]))
         # print(job.statepoint.dimensions)
         # if job.statepoint.dimensions.split('x')[2] != '1':
@@ -108,7 +108,6 @@ def find_crystal_extents_z(project, type_name, args):
             # plt.show()
             # #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
             # plt.close()
-            print("")
             trough_positions = [central_bins[x] for x in troughs]
             print("Trough positions =", [central_bins[x] for x in troughs])
             job.document["crystal_min_z"] = min(trough_positions)
@@ -120,7 +119,11 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50):
         if args.job is not None:
             if job.get_id() != args.job:
                 continue
-        print("Considering job", job.ws)
+        # Skip if this is a parent job
+        if "job_type" in job.sp:
+            if job.sp.job_type == "parent":
+                continue
+        print("\nConsidering job", job.ws)
         print(
             "".join(["Calculating RDFs between ", type1_name, "-", type2_name, "..."])
         )
