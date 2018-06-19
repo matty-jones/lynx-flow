@@ -26,6 +26,9 @@ def get_first_peak(project, metal=None, layers=None, z_size=None):
         {"dimensions": "x".join(["10", "10", str(layers)]), "z_reactor_size": z_size}
     )
     for job in job_list:
+        # Skip if this is a parent job
+        if ("job_type" in job.sp) and (job.sp.job_type == "parent"):
+            continue
         csv_file_location = os.path.join(
             job.ws, "RDFs", "".join(["RDF_C-", metal, "_Av.csv"])
         )
