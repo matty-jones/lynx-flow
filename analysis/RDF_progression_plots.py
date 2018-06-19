@@ -14,12 +14,25 @@ Files are output to the output_figures directory in lynx-flow's root.
 
 def plot_first_peaks(project):
     colours = pl.cm.seismic(np.linspace(0, 1, 4))
+    all_dimensions = []
+    all_z_sizes = []
+    # Iterate through all jobs in the project to find the unique dimensions
+    # and reactor sizes
+    for job in project:
+        statepoint = job.sp()
+        all_dimensions.append(statepoint["dimensions"])
+        all_z_sizes.append(statepoint["z_reactor_size"])
+    all_dimensions = list(set(all_dimensions))
+    all_z_sizes = list(set(all_z_sizes))
+
     for plot_index, plot_type in enumerate(["Position (A)", "Magnitude (Arb. U.)"]):
         print(" ".join(["Creating", plot_type[:3].lower(), "plots..."]))
-        for dimension in ["10x10x1", "10x10x2", "10x10x3"]:
+        for dimension in all_dimensions:
             print("Creating plots for dimensions =", dimension)
+            # New figure for every dimension
             plt.figure()
-            for z_size in [10, 15, 20, 25]:
+            for z_size in all_z_sizes:
+                # New line on the plot for each z_size
                 print("Creating plots for reactor size =", z_size)
                 for index, metal in enumerate(["Mo", "Nb", "Te", "V"]):
                     temperatures = []
