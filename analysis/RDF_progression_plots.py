@@ -25,7 +25,10 @@ def plot_first_peaks(project):
                     temperatures = []
                     first_peak_data = []
                     for job in project.find_jobs(
-                        {"dimensions": dimension, "z_reactor_size": z_size}
+                        {"dimensions": dimension,
+                         "z_reactor_size": z_size,
+                         "job_type": "child",
+                        }
                     ):
                         try:
                             first_peak = job.document[
