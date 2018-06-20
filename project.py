@@ -5,21 +5,21 @@ import shutil
 import os
 
 
-class LynxProject(flow.FlowProject):
+class RhacoProject(flow.FlowProject):
     def __init__(self, *args, **kwargs):
-        super(LynxProject, self).__init__(*args, **kwargs)
+        super(RhacoProject, self).__init__(*args, **kwargs)
         env = flow.get_environment()
         self.add_operation(
             name="generate",
             cmd=lambda job: "python -u operations.py generate {}".format(job),
-            pre=[LynxProject.parent_job],
-            post=[LynxProject.generated],
+            pre=[RhacoProject.parent_job],
+            post=[RhacoProject.generated],
         )
         self.add_operation(
             name="simulate",
             cmd=lambda job: "python -u operations.py simulate {}".format(job),
-            pre=[LynxProject.generated],
-            post=[LynxProject.simulated],
+            pre=[RhacoProject.generated],
+            post=[RhacoProject.simulated],
         )
 
     @flow.staticlabel()
@@ -36,7 +36,7 @@ class LynxProject(flow.FlowProject):
                     "Found {} parent jobs, instead of one. Check"
                     " the workspace for inconsistencies.".format(len(parent_jobs))
                 )
-            parent_completed = LynxProject.generated(parent_job)
+            parent_completed = RhacoProject.generated(parent_job)
             if parent_completed:
                 # Copy the generated morphology
                 shutil.copyfile(
@@ -68,4 +68,4 @@ class LynxProject(flow.FlowProject):
 
 
 if __name__ == "__main__":
-    LynxProject().main()
+    RhacoProject().main()
