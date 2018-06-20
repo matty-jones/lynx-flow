@@ -8,7 +8,7 @@ import numpy as np
 This module plots the RDF first-peak progression for each job in the workspace.
 Evolutions are hardcoded in and show the evolution in the first-peak as a
 function of temperature for each z_reactor_size at a given crystal dimension.
-Files are output to the output_figures directory in lynx-flow's root.
+Files are output to the output_figures directory in rhaco-flow's root.
 """
 
 

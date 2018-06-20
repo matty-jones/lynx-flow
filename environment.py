@@ -83,7 +83,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --gres=gpu:1")
 
         js.writeline("on-conda")
-        js.writeline("source activate lynx")
+        js.writeline("source activate rhaco")
         return js
 
     @classmethod
@@ -122,7 +122,7 @@ class r2Environment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --gres=gpu:1")
 
         js.writeline("on-conda")
-        js.writeline("source activate lynx")
+        js.writeline("source activate rhaco")
         return js
 
     @classmethod
@@ -161,7 +161,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --gres=gpu:1")
 
         js.writeline("on-conda")
-        js.writeline("source activate lynx")
+        js.writeline("source activate rhaco")
 
         return js
 

@@ -8,7 +8,7 @@ import numpy as np
 This module plots the TPS progression for each job in the workspace.
 Evoliutions are hardcoded in and show the evolution in the TPS as a function of
 temperature for each z_reactor_size at a given crystal dimension.
-Files are output to the output_figures directory in lynx-flow's root.
+Files are output to the output_figures directory in rhaco-flow's root.
 """
 
 
