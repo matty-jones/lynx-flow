@@ -9,12 +9,12 @@ def get_gen_parameters():
     parameters = OrderedDict()
     # Generate Parameters
     parameters["stoichiometry"] = ["{'Mo':1,'V':0.3,'Nb':0.15,'Te':0.15}"]
-    parameters["dimensions"] = ["10x10x3"]
+    parameters["dimensions"] = ["10x10x1", "10x10x2", "10x10x3"]
     parameters["template"] = ["M1UnitCell.pdb"]
     parameters["crystal_separation"] = [25.0]
     parameters["z_reactor_size"] = [20.0]
-    parameters["gas_composition"] = ["{'C2H6':1}"]
-    parameters["gas_density"] = [0.01356]
+    parameters["reactant_composition"] = ["{'C2H6':1}"]
+    parameters["reactant_density"] = [0.01356]
     parameters["forcefield"] = ["FF_opls_uff"]
     parameters["job_type"] = ["parent"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
