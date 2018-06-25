@@ -43,7 +43,11 @@ def get_first_peak(project, metal=None, layers=None, z_size=None):
         plt.ylabel("RDF (Arb. U.)")
         figure_file = csv_file_location.replace(".csv", "_smooth.pdf")
         peaks = argrelextrema(smoothed_RDF, np.greater)
-        title = "Peaks @ [{:.2f}, {:.2f}]".format(*[RDF_Data["r"].values[x] for x in peaks[0][:2]])
+        first_two_peaks = [RDF_Data["r"].values[x] for x in peaks[0][:2]]
+        if len(first_two_peaks) == 1:
+            title = "Peaks @ [{:.2f}]".format(*first_two_peaks)
+        else:
+            title = "Peaks @ [{:.2f}, {:.2f}]".format(*first_two_peaks)
         plt.title(title)
         try:
             # Update job document with the first peak data
