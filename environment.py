@@ -13,6 +13,7 @@ from datetime import timedelta
 from time import sleep
 import getpass
 import subprocess
+import scheduler as rhaco-flow-schedulers
 
 
 def _fetch(user=None):
@@ -169,3 +170,39 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
     def submit(cls, script, flags=None, *args, **kwargs):
         sleep(0.5)
         return super(kestrelEnvironment, cls).submit(script, flags, *args, **kwargs)
+
+
+class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
+    hostname_pattern = 'h2ologin*'  # TODO: run python -c "import socket; print(socket.gethostname())"
+    cores_per_node = 1
+    scheduler_type = rhaco_flow_schedulers.PBSProScheduler
+
+    @classmethod
+    def is_present(cls):
+        return super(blueWatersEnvironment, cls).is_present()
+
+    @classmethod
+    def script(cls, _id, **kwargs):
+        nn=1
+        kwargs['nn']=None
+        js = super(blueWatersEnvironment, cls).script(_id=_id, **kwargs)
+        js.writeline('#!/bin/bash')
+        js.writeline("#PBS -j {}".format(_id))
+        js.writeline('#PBS -l walltime=00:10:00:nodes=1:ppn=16:xk')
+        js.writeline('#PBS -q debug')
+        js.writeline('#PBS -o {}.o'.format(_id))
+
+        js.writeline('module unload PrgEnv-cray')
+        js.writeline('module load PrgEnv-gnu')
+        js.writeline('module load bwpy/1.1.0')
+        js.writeline('module load cudatoolkit/7.5.18-1.0502.10743.2.1')
+        js.writeline('module load ccm')
+        js.writeline('bwpy-environ')
+        js.writeline('source /u/eot/anderso4/projects/rhaco-virtualenv/bin/activate') 
+        js.writeline('export PYTHONPATH="/u/eot/anderso4/software/build-hoomd-on-blue-waters/hoomd_blue/build"')
+        return js
+
+    @classmethod
+    def submit(cls, script, flags=None, *args, **kwargs):
+        sleep(0.5)
+        return super(blueWatersEnvironment, cls).submit(script, flags, *args, **kwargs)
