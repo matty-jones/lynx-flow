@@ -176,6 +176,7 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
     hostname_pattern = 'h2ologin*'  # TODO: run python -c "import socket; print(socket.gethostname())"
     cores_per_node = 1
     #scheduler_type = rhaco_flow_schedulers.PBSProScheduler
+    print("----------============= WOOOBBEEEEYYY ============-----------")
 
     @classmethod
     def is_present(cls):
@@ -183,8 +184,7 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
 
     @classmethod
     def script(cls, _id, **kwargs):
-        nn=1
-        kwargs['nn']=None
+        print("SCRIPT")
         js = super(blueWatersEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline("#PBS -N {}".format(_id))
