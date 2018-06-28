@@ -9,6 +9,7 @@ class RhacoProject(flow.FlowProject):
     def __init__(self, *args, **kwargs):
         super(RhacoProject, self).__init__(*args, **kwargs)
         env = flow.get_environment()
+        print("Environment selected as =", env)
         self.add_operation(
             name="generate",
             cmd=lambda job: "python -u operations.py generate {}".format(job),
