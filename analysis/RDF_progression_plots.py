@@ -24,7 +24,6 @@ def plot_first_peaks(project):
         all_z_sizes.append(statepoint["z_reactor_size"])
     all_dimensions = list(set(all_dimensions))
     all_z_sizes = list(set(all_z_sizes))
-
     for plot_index, plot_type in enumerate(["Position (A)", "Magnitude (Arb. U.)"]):
         print(" ".join(["Creating", plot_type[:3].lower(), "plots..."]))
         for dimension in all_dimensions:
