@@ -175,7 +175,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
 class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
     hostname_pattern = 'h2ologin*'  # TODO: run python -c "import socket; print(socket.gethostname())"
     cores_per_node = 1
-    scheduler_type = rhaco_flow_schedulers.PBSProScheduler
+    #scheduler_type = rhaco_flow_schedulers.PBSProScheduler
 
     @classmethod
     def is_present(cls):
