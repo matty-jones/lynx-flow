@@ -176,7 +176,6 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
     hostname_pattern = 'h2ologin*'  # TODO: run python -c "import socket; print(socket.gethostname())"
     cores_per_node = 1
     #scheduler_type = rhaco_flow_schedulers.PBSProScheduler
-    print("----------============= WOOOBBEEEEYYY ============-----------")
 
     @classmethod
     def is_present(cls):
@@ -184,8 +183,8 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
 
     @classmethod
     def script(cls, _id, **kwargs):
-        print("SCRIPT")
-        js = super(blueWatersEnvironment, cls).script(_id=_id, **kwargs)
+        js = flow.environment.JobScript(cls)
+        #js = super(blueWatersEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline("#PBS -N {}".format(_id))
         js.writeline('#PBS -l nodes=1:ppn=16:xk')
@@ -199,7 +198,7 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
         js.writeline('module load cudatoolkit/7.5.18-1.0502.10743.2.1')
         js.writeline('module load ccm')
         js.writeline('bwpy-environ')
-        js.writeline('source /u/eot/anderso4/projects/rhaco-virtualenv/bin/activate') 
+        js.writeline('source /u/eot/anderso4/projects/rhaco/rhaco-virtualenv/bin/activate') 
         js.writeline('export PYTHONPATH="/u/eot/anderso4/software/build-hoomd-on-blue-waters/hoomd_blue/build"')
         return js
 
