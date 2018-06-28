@@ -13,7 +13,7 @@ from datetime import timedelta
 from time import sleep
 import getpass
 import subprocess
-import scheduler as rhaco-flow-schedulers
+import scheduler as rhaco_flow_schedulers
 
 
 def _fetch(user=None):
