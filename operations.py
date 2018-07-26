@@ -37,7 +37,7 @@ def simulate(job):
             if flag in simulate_flags:
                 job_command += [str(simulate_flags[flag]), str(job.sp[flag])]
         job_command += ["output.hoomdxml"]
-        simulate = subprocess.Popen(job_command, stdout=hoomd_stdout)
+        simulate = subprocess.Popen(job_command, stdout=hoomd_stdout, stderr=hoomd_stdout)
         simulate.wait()
 
 
