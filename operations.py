@@ -25,6 +25,7 @@ def generate(job):
         for flag in job.sp.keys():
             if flag in generate_flags:
                 job_command += [str(generate_flags[flag]), str(job.sp[flag])]
+        print("Executing job command:", job_command)
         generate = subprocess.Popen(job_command, stdout=generate_stdout)
         generate.wait()
 
@@ -37,6 +38,7 @@ def simulate(job):
             if flag in simulate_flags:
                 job_command += [str(simulate_flags[flag]), str(job.sp[flag])]
         job_command += ["output.hoomdxml"]
+        print("Executing job command:", job_command)
         simulate = subprocess.Popen(job_command, stdout=hoomd_stdout)
         simulate.wait()
 

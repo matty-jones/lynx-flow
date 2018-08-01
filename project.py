@@ -12,12 +12,13 @@ class RhacoProject(flow.FlowProject):
         print("Environment selected as =", env)
         self.add_operation(
             name="generate",
-            cmd=lambda job: "python -u operations.py generate {}".format(job),
+            cmd=lambda job: "source generate.sh {}".format(job),
             pre=[RhacoProject.parent_job],
             post=[RhacoProject.generated],
         )
         self.add_operation(
             name="simulate",
+            # cmd=lambda job: "source simulate.sh {}".format(job),
             cmd=lambda job: "python -u operations.py simulate {}".format(job),
             pre=[RhacoProject.generated],
             post=[RhacoProject.simulated],
@@ -45,10 +46,10 @@ class RhacoProject(flow.FlowProject):
                     os.path.join(job._wd, "output.hoomdxml"),
                 )
                 # Also copy the generate stdout
-                shutil.copyfile(
-                    os.path.join(parent_job._wd, "generate_stdout.log"),
-                    os.path.join(job._wd, "generate_stdout.log"),
-                )
+                # shutil.copyfile(
+                #    os.path.join(parent_job._wd, "generate_stdout.log"),
+                #    os.path.join(job._wd, "generate_stdout.log"),
+                # )
             else:
                 return False
         return job.isfile("output.hoomdxml")

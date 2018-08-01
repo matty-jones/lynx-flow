@@ -179,6 +179,7 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
 
     @classmethod
     def is_present(cls):
+        print(super(blueWatersEnvironment, cls).is_present())
         return super(blueWatersEnvironment, cls).is_present()
 
     @classmethod
@@ -188,17 +189,15 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
         js.writeline('#!/bin/bash')
         js.writeline("#PBS -N {}".format(_id))
         js.writeline('#PBS -l nodes=1:ppn=16:xk')
-        js.writeline('#PBS -l walltime=00:10:00')
-        js.writeline('#PBS -q debug')
+        js.writeline('#PBS -l walltime=00:05:00')
+        js.writeline('#PBS -q normal')
         js.writeline('#PBS -o {}.o'.format(_id))
 
         js.writeline('module unload PrgEnv-cray')
         js.writeline('module load PrgEnv-gnu')
-        js.writeline('module load bwpy/1.1.0')
         js.writeline('module load cudatoolkit/7.5.18-1.0502.10743.2.1')
         js.writeline('module load ccm')
-        js.writeline('bwpy-environ')
-        js.writeline('source /u/eot/anderso4/projects/rhaco/rhaco-virtualenv/bin/activate') 
+        js.writeline('source /u/eot/anderso4/projects/rhaco/rhaco-virtualenv-rhaas/bin/activate') 
         js.writeline('export PYTHONPATH="/u/eot/anderso4/software/build-hoomd-on-blue-waters/hoomd_blue/build"')
         return js
 
