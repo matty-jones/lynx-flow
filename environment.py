@@ -188,9 +188,9 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
         #js = super(blueWatersEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline('#!/bin/bash')
         js.writeline("#PBS -N {}".format(_id))
-        js.writeline('#PBS -l nodes=1:ppn=16:xk')
+        js.writeline('#PBS -l nodes=1:ppn=1:xk')
         js.writeline('#PBS -l walltime=00:05:00')
-        js.writeline('#PBS -q normal')
+        js.writeline('#PBS -q debug')
         js.writeline('#PBS -o {}.o'.format(_id))
 
         js.writeline('module unload PrgEnv-cray')

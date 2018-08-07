@@ -18,8 +18,9 @@ class RhacoProject(flow.FlowProject):
         )
         self.add_operation(
             name="simulate",
+            cmd=lambda job: "ccmlogin /u/eot/anderso4/projects/rhaco-flow/simulate.sh {}".format(job),
             # cmd=lambda job: "source simulate.sh {}".format(job),
-            cmd=lambda job: "python -u operations.py simulate {}".format(job),
+            # cmd=lambda job: "python -u operations.py simulate {}".format(job),
             pre=[RhacoProject.generated],
             post=[RhacoProject.simulated],
         )
