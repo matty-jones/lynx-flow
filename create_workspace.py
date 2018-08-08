@@ -12,9 +12,9 @@ def get_gen_parameters():
     parameters["dimensions"] = ["10x10x1"]
     parameters["template"] = ["M1UnitCell.pdb"]
     parameters["crystal_separation"] = [25.0]
-    parameters["z_reactor_size"] = [20.0]
+    parameters["z_reactor_size"] = [10.0]
     parameters["reactant_composition"] = ["{'C2H6':1}"]
-    parameters["reactant_density"] = [0.01356]
+    parameters["reactant_density"] = [0.1]
     parameters["forcefield"] = ["FF_opls_uff"]
     parameters["job_type"] = ["parent"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
@@ -26,6 +26,7 @@ def get_sim_parameters():
     parameters["temperature"] = [433]
     parameters["run_time"] = [1E3]
     parameters["timestep"] = [1E-3]
+    parameters["tau"] = [1E-1]
     parameters["job_type"] = ["child"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
 
