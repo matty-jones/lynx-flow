@@ -30,7 +30,12 @@ def generate(job):
 
 
 def simulate(job):
-    simulate_flags = {"temperature": "-t", "run_time": "-r", "timestep": "-s"}
+    simulate_flags = {
+        "temperature": "-T",
+        "run_time": "-r",
+        "timestep": "-s",
+        "tau": "-t",
+    }
     with job, open("hoomd_stdout.log", "w+") as hoomd_stdout:
         job_command = ["rhaco-run-hoomd"]
         for flag in job.sp.keys():
