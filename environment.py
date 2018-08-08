@@ -84,6 +84,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
 
         js.writeline("on-conda")
         js.writeline("source activate rhaco")
+        js.writeline("module load cuda80")
         return js
 
     @classmethod
