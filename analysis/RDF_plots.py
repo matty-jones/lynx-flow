@@ -114,7 +114,25 @@ def find_crystal_extents_z(project, type_name, args):
             job.document["crystal_max_z"] = max(trough_positions)
 
 
-def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50):
+def update_bond_dict(bond_dict, frame, type_name):
+    bond_type = "-".join([type_name, type_name])
+    type_index = frame.bonds.types.index(bond_type)
+    bonded_atoms = frame.bonds.group[np.where(frame.bonds.typeid == type_index)]
+    for bond in bonded_atoms:
+        if (bond[0] < bond[1]):
+            if (bond[0] not in bond_dict):
+                bond_dict[bond[0]] = [bond[1]]
+            else:
+                bond_dict[bond[0]].append(bond[1])
+        else:
+            if (bond[1] not in bond_dict):
+                bond_dict[bond[1]] = [bond[0]]
+            else:
+                bond_dict[bond[1]].append(bond[0])
+    return bond_dict
+
+
+def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, all_type1_in_mol=False, all_type2_in_mol=False):
     for job in project:
         if args.job is not None:
             if job.get_id() != args.job:
@@ -138,6 +156,13 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50):
         av_rdf.resetRDF()
         type1 = trajectory[0].particles.types.index(type1_name)
         type2 = trajectory[0].particles.types.index(type2_name)
+        important_bonds = {}
+        if all_type1_in_mol:
+            important_bonds = update_bond_dict(important_bonds, trajectory[0], type1_name)
+        if all_type2_in_mol:
+            important_bonds = update_bond_dict(important_bonds, trajectory[0], type1_name)
+        print(important_bonds)
+        exit()
         for frame_no, frame in enumerate(trajectory):
             print(
                 "".join(
@@ -155,6 +180,20 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50):
             # In case box size changes
             box = frame.configuration.box
             freud_box = freud.box.Box(Lx=box[0], Ly=box[1], Lz=box[2])
+
+
+            print("DEBUG")
+            important_type_ID = "-".join([type1_name, type1_name])
+            print(type(frame))
+            print(dir(frame.bonds))
+            print(frame.bonds.types)
+            print(frame.bonds.typeid)
+            print(frame.bonds.group)
+            print(frame.bonds.N)
+            exit()
+            
+            
+            
             type1_pos = frame.particles.position[
                 np.where(frame.particles.typeid == type1)
             ]
@@ -234,7 +273,7 @@ if __name__ == "__main__":
         required=False,
         default=None,
         help=(
-            "If present, only consider the job in the current" " directory's workspace."
+            "If present, only consider the job in the current directory's workspace."
         ),
     )
     args, directory_list = parser.parse_known_args()
@@ -243,4 +282,4 @@ if __name__ == "__main__":
         # Plot distribution of z-values for atoms
         find_crystal_extents_z(project, type2, args)
         # Plot RDF variation
-        plot_rdf(project, "C", type2, args)
+        plot_rdf(project, "C", type2, args, all_type1_in_mol=True)
