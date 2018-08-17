@@ -18,7 +18,7 @@ This module plots several RDFs for each job in the workspace.
 trajectory GSD), as well as an aggregated RDF describing the average over the
 entire simulation.
 Additionally, csv files are written for every RDF to permit subsequent analysis
-All 22 files (2 * 11) are written for each metal atom in the system (Mo, Nb,
+All 22 files (2 * 11) are written for each surface atom in the system (Mo, Nb,
 Te, V).
 """
 
@@ -395,8 +395,12 @@ if __name__ == "__main__":
     )
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
-    for type2 in ["Mo", "V", "Nb", "Te"]:
+    surface_atom_types = []
+    for stoic_dict_str, _ in project.groupby('stoichiometry'):
+        surface_atom_types += list(eval(stoic_dict_str).keys())
+    surface_atom_types = list(set(surface_atom_types))
+    for atom_type in surface_atom_types:
         # Plot distribution of z-values for atoms
-        find_crystal_extents_z(project, type2, args)
+        find_crystal_extents_z(project, atom_type, args)
         # Plot RDF variation
-        plot_rdf(project, "C", type2, args, type1_by_mol=True)
+        plot_rdf(project, "C", atom_type, args, type1_by_mol=True)
