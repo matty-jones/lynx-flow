@@ -21,17 +21,14 @@ job.document['RDF_first_peak'] as [r, g(r)].
 """
 
 
-def get_first_peak(project, metal=None, layers=None, z_size=None):
-    job_list = project.find_jobs(
-        {"dimensions": "x".join(["10", "10", str(layers)]), "z_reactor_size": z_size}
-    )
-    for job in job_list:
-        print(job.ws)
+def get_first_peak(project, surface_atom_type=None):
+    for job in project:
+        print("Detecting peaks in", job.get_id(), "RDF for atom type", surface_atom_type)
         # Skip if this is a parent job
         if ("job_type" in job.sp) and (job.sp.job_type == "parent"):
             continue
         csv_file_location = os.path.join(
-            job.ws, "RDFs", "".join(["RDF_C-", metal, "_Av.csv"])
+            job.ws, "RDFs", "".join(["RDF_C-", surface_atom_type, "_Av.csv"])
         )
         RDF_Data = pd.read_csv(csv_file_location)
 
@@ -53,10 +50,10 @@ def get_first_peak(project, metal=None, layers=None, z_size=None):
         try:
             # Update job document with the first peak data
             first_peak = [RDF_Data["r"].values[peaks[0][0]], smoothed_RDF[peaks[0][0]]]
-            job.document["".join(["RDF_first_peak_", metal])] = first_peak
+            job.document["".join(["RDF_first_peak_", surface_atom_type])] = first_peak
             # Update job document with the second peak data
             second_peak = [RDF_Data["r"].values[peaks[0][1]], smoothed_RDF[peaks[0][1]]]
-            job.document["".join(["RDF_second_peak_", metal])] = second_peak
+            job.document["".join(["RDF_second_peak_", surface_atom_type])] = second_peak
         except IndexError:
             print("Only", len(peaks), "peaks found.")
             print("Check", figure_file, "for more details")
@@ -66,36 +63,10 @@ def get_first_peak(project, metal=None, layers=None, z_size=None):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-m", "--metal",
-    #                    type=str,
-    #                    required=True,
-    #                    help='''The transition metal in the M1 catalyst to
-    #                    consider when calculating the RDF''')
-    # parser.add_argument("-l", "--layers",
-    #                    type=int,
-    #                    required=True,
-    #                    help='''Consider only RDFs that contain this number of
-    #                    layers of M1 catalyst in the system''')
-    # parser.add_argument("-z", "--z_reactor_size",
-    #                    type=float,
-    #                    required=True,
-    #                    help='''Consider only RDFs that for systems that were
-    #                    simulated in a reactor of this size''')
-    # args = parser.parse_args()
     project = signac.get_project("../")
-    metal_atom_types = []
-    dimensions = []
-    reactor_sizes = []
+    surface_atom_types = []
     for stoic_dict_str, _ in project.groupby('stoichiometry'):
-        metal_atom_types += list(eval(stoic_dict_str).keys())
-    metal_atom_types = list(set(metal_atom_types))
-    for dimension, _ in project.groupby('dimensions'):
-        dimensions.append(dimension)
-    for reactor_size, _ in project.groupby('z_reactor_size'):
-        reactor_sizes.append(float(reactor_size))
-    for type2 in metal_atom_types:
-        for layer in [int(dim.split('x')[2]) for dim in dimensions]:
-            for reactor_size in reactor_sizes:
-                # Plot RDF variation
-                get_first_peak(project, metal=type2, layers=layer, z_size=reactor_size)
+        surface_atom_types += list(eval(stoic_dict_str).keys())
+    surface_atom_types = list(set(surface_atom_types))
+    for atom_type in surface_atom_types:
+        get_first_peak(project, surface_atom_type=atom_type)
