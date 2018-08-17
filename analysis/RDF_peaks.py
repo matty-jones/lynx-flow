@@ -84,8 +84,18 @@ if __name__ == "__main__":
     #                    simulated in a reactor of this size''')
     # args = parser.parse_args()
     project = signac.get_project("../")
-    for type2 in ["Mo", "V", "Nb", "Te"]:
-        for layer in [1, 2, 3]:
-            for reactor_size in [10, 15, 20, 25]:
+    metal_atom_types = []
+    dimensions = []
+    reactor_sizes = []
+    for stoic_dict_str, _ in project.groupby('stoichiometry'):
+        metal_atom_types += list(eval(stoic_dict_str).keys())
+    metal_atom_types = list(set(metal_atom_types))
+    for dimension, _ in project.groupby('dimensions'):
+        dimensions.append(dimension)
+    for reactor_size, _ in project.groupby('z_reactor_size'):
+        reactor_sizes.append(float(reactor_size))
+    for type2 in metal_atom_types:
+        for layer in [int(dim.split('x')[2]) for dim in dimensions]:
+            for reactor_size in reactor_sizes:
                 # Plot RDF variation
                 get_first_peak(project, metal=type2, layers=layer, z_size=reactor_size)
