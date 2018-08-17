@@ -13,7 +13,7 @@ Files are output to the output_figures directory in rhaco-flow's root.
 
 
 def plot_first_peaks(project):
-    colours = pl.cm.seismic(np.linspace(0, 1, 4))
+    colours = pl.cm.coolwarm(np.linspace(0, 1, 4))
     all_dimensions = []
     all_z_sizes = []
     all_surface_atom_types = []
