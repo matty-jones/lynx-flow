@@ -1,8 +1,6 @@
 import argparse
 import csv
 import freud
-import gsd.fl
-import gsd.hoomd
 import os
 import signac
 import matplotlib.pyplot as plt
@@ -30,8 +28,12 @@ def get_first_peak(project, surface_atom_type=None):
         csv_file_location = os.path.join(
             job.ws, "RDFs", "".join(["RDF_C-", surface_atom_type, "_Av.csv"])
         )
-        RDF_Data = pd.read_csv(csv_file_location)
-
+        try:
+            RDF_Data = pd.read_csv(csv_file_location)
+        except FileNotFoundError:
+            print("No RDF data found for", job.get_id())
+            print("Skipping...")
+            continue
         smoothed_RDF = gaussian_filter(RDF_Data["g(r)"], 2.0)
 
         plt.figure()
