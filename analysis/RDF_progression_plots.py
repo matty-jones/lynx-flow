@@ -27,7 +27,6 @@ def plot_first_peaks(project):
     all_dimensions = list(set(all_dimensions))
     all_z_sizes = list(set(all_z_sizes))
     all_surface_atom_types = list(set(all_surface_atom_types))
-
     for plot_index, plot_type in enumerate(["Position (A)", "Magnitude (Arb. U.)"]):
         print(" ".join(["Creating", plot_type[:3].lower(), "plots..."]))
         for dimension in all_dimensions:

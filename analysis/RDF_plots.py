@@ -48,7 +48,11 @@ def find_crystal_extents_z(project, type_name, args):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         gsd_file_name = os.path.join(job.ws, "output_traj.gsd")
-        gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
+        try:
+            gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
+        except OSError:
+            print(gsd_file_name, "not found. Skipping...")
+            continue
         trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
         atom_type = trajectory[0].particles.types.index(type_name)
         final_frame = trajectory[-1]
@@ -273,7 +277,11 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_b
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         gsd_file_name = os.path.join(job.ws, "output_traj.gsd")
-        gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
+        try:
+            gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
+        except OSError:
+            print(gsd_file_name, "not found. Skipping...")
+            continue
         trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
         sim_box = trajectory[0].configuration.box[:3]
         av_rdf = freud.density.RDF(rmax=r_max, dr=0.1)
