@@ -8,14 +8,16 @@ from collections import OrderedDict
 def get_gen_parameters():
     parameters = OrderedDict()
     # Generate Parameters
-    parameters["stoichiometry"] = ["{'Mo':1,'V':0.3,'Nb':0.15,'Te':0.15}"]
-    parameters["dimensions"] = ["5x5x1"]
-    parameters["template"] = ["M1UnitCell.pdb"]
-    parameters["crystal_separation"] = [25.0]
-    parameters["z_reactor_size"] = [10.0]
-    parameters["reactant_composition"] = ["{'C2H6':1}"]
-    parameters["reactant_density"] = [0.1]
-    parameters["forcefield"] = ["FF_opls_uff"]
+    parameters["dimensions"] = ["30x15x1"]
+    parameters["template"] = ["corundum.pdb"]
+    parameters["crystal_separation"] = [40.0]
+    parameters["reactant_composition"] = ["{'Ag_5nm':1}"]
+    parameters["reactant_num_mol"] = [2]
+    parameters["reactant_position"] = ["[[-2.8, 0.0, 5.8], [-2.8, 0.0, 5.8]]"]
+    parameters["forcefield"] = ["['corundum.eam.fs', 'FF_Ag_Sapphire.xml']"]
+    parameters["crystal_x"] = ["0.4759"]
+    parameters["crystal_y"] = ["0.4759"]
+    parameters["crystal_z"] = ["1.299"]
     parameters["job_type"] = ["parent"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
 
@@ -23,16 +25,16 @@ def get_gen_parameters():
 def get_sim_parameters():
     parameters = OrderedDict()
     # Simulate Parameters
-    parameters["temperature"] = [533]
-    parameters["run_time"] = [1E5]
-    parameters["timestep"] = [1E-3]
-    parameters["tau"] = [1E-1]
+    parameters["temperature"] = [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600]
+    parameters["run_time"] = [1E7]
+    parameters["omit_lj"] = ["Ag-Ag"]
+    parameters["energy_scale_unit"] = ["23.06"]
     parameters["job_type"] = ["child"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
 
 
 if __name__ == "__main__":
-    project = signac.init_project("FirstParSweep")
+    project = signac.init_project("AgNP_Corundum_TempSweep")
     gen_param_names, gen_param_combinations = get_gen_parameters()
     sim_param_names, sim_param_combinations = get_sim_parameters()
     # Create the generate jobs

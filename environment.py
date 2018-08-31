@@ -70,7 +70,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn = 1
-        walltime = timedelta(hours=1)
+        walltime = timedelta(hours=72)
         js = super(fryEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline("#!/bin/bash")
         js.writeline("#SBATCH --job-name={}".format(_id))
