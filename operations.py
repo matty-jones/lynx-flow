@@ -11,13 +11,18 @@ def generate(job):
         "dimensions": "-d",
         "template": "-t",
         "crystal_separation": "-c",
+        "crystal_bonds": "-b",
         "z_reactor_size": "-z",
         "reactant_composition": "-rc",
         "reactant_num_mol": "-rn",
         "reactant_density": "-rd",
+        "reactant_position": "-rp",
         "forcefield": "-f",
         "integrate_crystal": "-i",
         "signac": "-sig",
+        "crystal_x": "-xx",
+        "crystal_y": "-xy",
+        "crystal_z": "-xz",
     }
     with job, open("generate_stdout.log", "w+") as generate_stdout:
         # Always run with the signac flag -sig
@@ -36,6 +41,9 @@ def simulate(job):
         "run_time": "-r",
         "timestep": "-s",
         "tau": "-t",
+        "omit_lj": "-o",
+        "energy_scale_unit": "-e",
+        "distance_scale_unit": "-d",
     }
     with job, open("hoomd_stdout.log", "w+") as hoomd_stdout:
         job_command = ["rhaco-run-hoomd"]
