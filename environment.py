@@ -76,7 +76,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --job-name={}".format(_id))
         js.writeline("#SBATCH -N {}".format(nn))
         js.writeline("#SBATCH -t {}".format(format_timedelta(walltime)))
-        js.writeline("#SBATCH -n 8")
+        js.writeline("#SBATCH -n 1")
         js.writeline("#SBATCH -p batch")
         js.writeline("#SBATCH --output={}.o".format(_id))
         js.writeline("#SBATCH --mail-type=All")
@@ -85,7 +85,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
 
         js.writeline("on-conda")
         js.writeline("source activate rhaco")
-        js.writeline("module load cuda80")
+        js.writeline("module load cuda91")
         return js
 
     @classmethod
@@ -154,7 +154,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#!/bin/bash")
         js.writeline("#SBATCH --job-name={}".format(_id))
         js.writeline("#SBATCH -N {}".format(nn))
-        js.writeline("#SBATCH -n 8")
+        js.writeline("#SBATCH -n 1")
         js.writeline("#SBATCH -t {}".format(format_timedelta(walltime)))
         js.writeline("#SBATCH -p batch")
         js.writeline("#SBATCH --output={}.o".format(_id))
@@ -163,6 +163,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --gres=gpu:1")
 
         js.writeline("on-conda")
+        js.writeline("module load cuda80/toolkit/8.0.61")
         js.writeline("source activate rhaco")
 
         return js
@@ -241,3 +242,38 @@ class cometEnvironment(flow.environment.SlurmEnvironment):
     def submit(cls, script, flags=None, *args, **kwargs):
         sleep(0.05)
         return super(cometEnvironment, cls).submit(script, flags, *args, **kwargs)
+
+
+class bridgesEnvironment(flow.environment.SlurmEnvironment):
+    hostname_pattern = "br*"
+    scheduler_type = SQueueSlurmScheduler
+
+    @classmethod
+    def is_present(cls):
+        return super(bridgesEnvironment, cls).is_present()
+
+    @classmethod
+    def mpi_cmd(cls, cmd, np):
+        return "srun -np {np} {cmd}".format(n=np, cmd=cmd)
+
+    @classmethod
+    def script(cls, _id, **kwargs):
+        walltime = timedelta(hours=48)
+        js = super(bridgesEnvironment, cls).script(_id=_id, **kwargs)
+        js.writeline("#!/bin/bash")
+        js.writeline("#SBATCH --job-name={}".format(_id))
+        js.writeline("#SBATCH -t {}".format(format_timedelta(walltime)))
+        js.writeline("#SBATCH --ntasks=1")
+        js.writeline("#SBATCH --ntasks-per-node=1")
+        js.writeline("#SBATCH -p GPU-shared")
+        js.writeline("#SBATCH --output={}.o".format(_id))
+        js.writeline("#SBATCH --gres=gpu:1")
+
+        js.writeline("source activate rhaco")
+        js.writeline("module load cuda/8.0")
+        return js
+
+    @classmethod
+    def submit(cls, script, flags=None, *args, **kwargs):
+        sleep(0.05)
+        return super(bridgesEnvironment, cls).submit(script, flags, *args, **kwargs)
