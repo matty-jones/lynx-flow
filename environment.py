@@ -206,3 +206,38 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
     def submit(cls, script, flags=None, *args, **kwargs):
         sleep(0.5)
         return super(blueWatersEnvironment, cls).submit(script, flags, *args, **kwargs)
+
+
+class cometEnvironment(flow.environment.SlurmEnvironment):
+    hostname_pattern = "comet-ln*"
+    scheduler_type = SQueueSlurmScheduler
+
+    @classmethod
+    def is_present(cls):
+        return super(cometEnvironment, cls).is_present()
+
+    @classmethod
+    def mpi_cmd(cls, cmd, np):
+        return "srun -np {np} {cmd}".format(n=np, cmd=cmd)
+
+    @classmethod
+    def script(cls, _id, **kwargs):
+        walltime = timedelta(hours=48)
+        js = super(cometEnvironment, cls).script(_id=_id, **kwargs)
+        js.writeline("#!/bin/bash")
+        js.writeline("#SBATCH --job-name={}".format(_id))
+        js.writeline("#SBATCH -t {}".format(format_timedelta(walltime)))
+        js.writeline("#SBATCH --ntasks=1")
+        js.writeline("#SBATCH --ntasks-per-node=6")
+        js.writeline("#SBATCH -p gpu-shared")
+        js.writeline("#SBATCH --output={}.o".format(_id))
+        js.writeline("#SBATCH --gres=gpu:1")
+
+        js.writeline("source activate rhaco")
+        js.writeline("module load cuda/8.0")
+        return js
+
+    @classmethod
+    def submit(cls, script, flags=None, *args, **kwargs):
+        sleep(0.05)
+        return super(cometEnvironment, cls).submit(script, flags, *args, **kwargs)
