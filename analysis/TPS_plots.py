@@ -35,9 +35,16 @@ def plot_tpses(project):
             temperatures = []
             tpses = []
             for job in project.find_jobs(
-                {"dimensions": dimension, "z_reactor_size": z_reactor_size}
+                {
+                    "dimensions": dimension,
+                    "z_reactor_size": z_reactor_size,
+                    "job_type": "child"
+                }
             ):
-                tps = extract_av_tps(os.path.join(job.ws, "stdout.o"))
+                try:
+                    tps = extract_av_tps(os.path.join(job.ws, "hoomd_stdout.log"))
+                except FileNotFoundError:
+                    tps = extract_av_tps(os.path.join(job.ws, "stdout.o"))
                 temperatures.append(job.sp()["temperature"])
                 tpses.append(tps)
             temperatures, tpses = zip(*sorted(zip(temperatures, tpses)))
@@ -51,7 +58,11 @@ def plot_tpses(project):
         plt.ylabel("TPS (Arb. U.)")
         plt.title("Dims = " + dimension)
         plt.legend(prop={"size": 10})
-        plt.savefig("../output_figures/tps_" + dimension + ".pdf")
+        try:
+            plt.savefig("../outputs/tps_" + dimension + ".pdf")
+        except FileNotFoundError:
+            os.makedirs("../outputs")
+            plt.savefig("../outputs/tps_" + dimension + ".pdf")
         plt.close()
 
 
