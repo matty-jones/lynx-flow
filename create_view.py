@@ -5,8 +5,8 @@ if __name__ == "__main__":
     cwd = os.getcwd()
     project = signac.get_project("./")
     schema = project.detect_schema()
-    for dimensions in schema["dimensions"].values():
-        for z_size in schema["z_reactor_size"].values():
+    for dimensions in schema["dimensions"].values()[0]:
+        for z_size in schema["z_reactor_size"].values()[0]:
             job_list = project.find_job_ids(
                 {
                     "dimensions": dimensions,
