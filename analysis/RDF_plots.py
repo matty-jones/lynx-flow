@@ -70,8 +70,8 @@ def find_crystal_extents_z(project, type_name, args):
             n, bins = np.histogram(
                 atom_posns[:, 2],
                 bins=np.linspace(
-                    -job.statepoint.crystal_separation,
-                    job.statepoint.crystal_separation,
+                    -float(job.statepoint.crystal_separation),
+                    float(job.statepoint.crystal_separation),
                     n_bins,
                 ),
             )
