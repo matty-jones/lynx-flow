@@ -12,9 +12,9 @@ from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter
 
 
-def calculate_xy_profile(job, z_lim):
-    print("\nCalculating XY-Plane profile for", job.ws)
-    save_dir = os.path.join(job.ws, "XY_profile")
+def calculate_yz_profile(job, z_lim):
+    print("\nCalculating YZ-Plane profile for", job.ws)
+    save_dir = os.path.join(job.ws, "YZ_profile")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     gsd_file_name = os.path.join(job.ws, "output_traj.gsd")
@@ -53,7 +53,7 @@ def calculate_xy_profile(job, z_lim):
         plt.title("NECK NOT FOUND")
     plt.xlabel("X position (Ang)")
     plt.ylabel("Particles in Slice (Arb. U.)")
-    plt.savefig(os.path.join(save_dir, "xy_profile.png"))
+    plt.savefig(os.path.join(save_dir, "yz_profile.png"))
     return smoothed_n[troughs][0]
 
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         if (job.sp.job_type == "parent"):
             continue
         temperature = job.sp.temperature
-        neck_width = calculate_xy_profile(job, args.z_lim)
+        neck_width = calculate_yz_profile(job, args.z_lim)
         job_temperatures.append(temperature)
         job_neck_widths.append(neck_width)
     job_temperatures, job_neck_widths = zip(*sorted(zip(job_temperatures, job_neck_widths)))
