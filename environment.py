@@ -70,7 +70,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn = 1
-        walltime = timedelta(hours=72)
+        walltime = timedelta(hours=48)
         js = super(fryEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline("#!/bin/bash")
         js.writeline("#SBATCH --job-name={}".format(_id))
@@ -110,12 +110,12 @@ class r2Environment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn = 1
-        walltime = timedelta(hours=1)
+        walltime = timedelta(hours=24)
         js = super(r2Environment, cls).script(_id=_id, **kwargs)
         js.writeline("#!/bin/bash")
         js.writeline("#SBATCH --job-name={}".format(_id))
         # js.writeline('#SBATCH -N {}'.format(nn))
-        js.writeline("#SBATCH -n 8")
+        js.writeline("#SBATCH -n 1")
         js.writeline("#SBATCH -t {}".format(format_timedelta(walltime)))
         js.writeline("#SBATCH -p gpuq")
         js.writeline("#SBATCH --output={}.o".format(_id))
@@ -149,7 +149,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
     @classmethod
     def script(cls, _id, **kwargs):
         nn = 1
-        walltime = timedelta(hours=1)
+        walltime = timedelta(hours=48)
         js = super(kestrelEnvironment, cls).script(_id=_id, **kwargs)
         js.writeline("#!/bin/bash")
         js.writeline("#SBATCH --job-name={}".format(_id))
