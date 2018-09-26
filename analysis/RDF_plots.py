@@ -170,12 +170,18 @@ def calc_COM(list_of_positions, list_of_atom_types=None, list_of_atom_masses=Non
             else:
                 raise SystemError(
                     "Unknown atomic mass " + str(atom_type) + ". Please hardcode"
-                    " into helper_functions.calc_COM."
+                    " into calc_COM."
                 )
     total_mass = np.sum(list_of_atom_masses)
     for atom_ID, position in enumerate(list_of_positions):
         for axis in range(3):
             mass_weighted[axis] += position[axis] * list_of_atom_masses[atom_ID]
+    if total_mass == 0.0:
+        print("List of posns", list_of_positions)
+        print("List of masses", list_of_atom_masses)
+        print("Mass weighted", mass_weighted)
+        print("Total mass", total_mass)
+        raise SystemError("WOBBEY")
     return mass_weighted / float(total_mass)
 
 
@@ -195,7 +201,7 @@ def obtain_bonded_list(bond_list):
     return bonded_atoms
 
 
-def split_molecules(frame):
+def split_molecules(frame, atom_type_ID):
     # Split the full morphology into individual molecules
     # Create a lookup table `neighbour list' for all connected atoms called
     # {bondedAtoms}
@@ -207,11 +213,18 @@ def split_molecules(frame):
     # Here we have a list of len(atoms) where each index gives the molID
     mol_ID_dict = {}
     for atom_ID, mol_ID in enumerate(molecule_list):
+        if frame.particles.typeid[atom_ID] != atom_type_ID:
+            continue
         if mol_ID not in mol_ID_dict:
             mol_ID_dict[mol_ID] = [atom_ID]
         else:
             mol_ID_dict[mol_ID].append(atom_ID)
-    return molecule_list, mol_ID_dict
+    mol_containing_type_dict = {}
+    # Now only return molecules that contain the atom we care about
+    for mol_ID, AAIDs in mol_ID_dict.items():
+        if np.any(np.array([frame.particles.typeid[AAID] for AAID in AAIDs]) == atom_type_ID):
+            mol_containing_type_dict[mol_ID] = AAIDs
+    return mol_containing_type_dict
 
 
 def update_molecule(atom_ID, molecule_list, bonded_atoms):
@@ -289,35 +302,51 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_b
         type1_ID = trajectory[0].particles.types.index(type1_name)
         type2_ID = trajectory[0].particles.types.index(type2_name)
 
-        AAID_to_molID, molID_to_AAIDs = split_molecules(trajectory[0])
+        print("Splitting Molecules...")
+        # AAID_to_molID, molID_to_AAIDs = split_molecules(trajectory[0])
+        # Split_molecules is super fast (because the bond list is already a lookup table).
+        # instead of running it once and then iterating through every AAID to find the molecules
+        # we want, change split_molecules to also accept an atom type.
+        # Then just have it return [[mol1_atom1, mol1_atom2,...], [mol2_atom1, mol2_atom2,...], ...]
+        # which is type1_AAIDs.
+
+
 
         if type1_by_mol is True:
-            # Return AAIDs for all atoms in the same molecule, if that molecule includes
-            # a type1_ID atom
-            type1_AAIDs = []
-            mols_considered = []
-            for AAID, molID in enumerate(AAID_to_molID):
-                if trajectory[0].particles.typeid[AAID] == type1_ID:
-                    if molID in mols_considered:
-                        continue
-                    mols_considered.append(molID)
-                    AAIDs_in_mol = molID_to_AAIDs[molID]
-                    type1_AAIDs.append(AAIDs_in_mol)
+            print("Determining molecules containing type_1...")
+            molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
+            type1_AAIDs = list(molID_to_AAIDs.values())
+            # OLD CODE, SUPER SLOW
+            # # Return AAIDs for all atoms in the same molecule, if that molecule includes
+            # # a type1_ID atom
+            # type1_AAIDs = []
+            # mols_considered = []
+            # for AAID, molID in enumerate(AAID_to_molID):
+            #     if trajectory[0].particles.typeid[AAID] == type1_ID:
+            #         if molID in mols_considered:
+            #             continue
+            #         mols_considered.append(molID)
+            #         AAIDs_in_mol = molID_to_AAIDs[molID]
+            #         type1_AAIDs.append(AAIDs_in_mol)
         else:
             type1_AAIDs = [[AAID] for AAID in np.where(trajectory[0].particles.typeid == type1_ID)[0]]
 
         if type2_by_mol is True:
+            print("Determining molecules containing type_2...")
+            molID_to_AAIDs = split_molecules(trajectory[0], type2_ID)
+            type2_AAIDs = list(molID_to_AAIDs.values())
             # Return AAIDs for all atoms in the same molecule, if that molecule includes
             # a type1_ID atom
-            type2_AAIDs = []
-            mols_considered = []
-            for AAID, molID in enumerate(AAID_to_molID):
-                if trajectory[0].particles.typeid[AAID] == type2_ID:
-                    if molID in mols_considered:
-                        continue
-                    mols_considered.append(molID)
-                    AAIDs_in_mol = molID_to_AAIDs[molID]
-                    type2_AAIDs.append(AAIDs_in_mol)
+            # OLD CODE, SUPER SLOW
+            # type2_AAIDs = []
+            # mols_considered = []
+            # for AAID, molID in enumerate(AAID_to_molID):
+            #     if trajectory[0].particles.typeid[AAID] == type2_ID:
+            #         if molID in mols_considered:
+            #             continue
+            #         mols_considered.append(molID)
+            #         AAIDs_in_mol = molID_to_AAIDs[molID]
+            #         type2_AAIDs.append(AAIDs_in_mol)
         else:
             type2_AAIDs = [[AAID] for AAID in np.where(trajectory[0].particles.typeid == type2_ID)[0]]
 
@@ -340,7 +369,8 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_b
             freud_box = freud.box.Box(Lx=box[0], Ly=box[1], Lz=box[2])
 
             type1_pos = get_type_positions(type1_AAIDs, frame)
-            type2_pos = get_type_positions(type2_AAIDs, frame, crystal_min_z=job.document["crystal_min_z"], crystal_max_z=job.document["crystal_max_z"])
+            type2_pos = get_type_positions(type2_AAIDs, frame)
+            #type2_pos = get_type_positions(type2_AAIDs, frame, crystal_min_z=job.document["crystal_min_z"], crystal_max_z=job.document["crystal_max_z"])
             av_rdf.accumulate(freud_box, type1_pos, type2_pos)
             if frame_no % stride == 0:
                 print(
