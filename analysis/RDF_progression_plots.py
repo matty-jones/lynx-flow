@@ -8,7 +8,7 @@ import numpy as np
 This module plots the RDF first-peak progression for each job in the workspace.
 Evolutions are hardcoded in and show the evolution in the first-peak as a
 function of temperature for each z_reactor_size at a given crystal dimension.
-Files are output to the output_figures directory in rhaco-flow's root.
+Files are output to the outputs directory in rhaco-flow's root.
 """
 
 
@@ -70,8 +70,12 @@ def plot_first_peaks(project):
                         ".pdf",
                     ]
                 )
-                plot_save_loc = os.path.join("..", "output_figures", plot_file_name)
-                plt.savefig(plot_save_loc)
+                plot_save_loc = os.path.join("..", "outputs", plot_file_name)
+                try:
+                    plt.savefig(plot_save_loc)
+                except FileNotFoundError:
+                    os.makedir("../outputs")
+                    plt.savefig(plot_save_loc)
                 print("Figure saved to", plot_save_loc)
                 plt.close()
 
