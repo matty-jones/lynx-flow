@@ -37,14 +37,15 @@ def find_crystal_extents_z(project, type_names, args):
         if "job_type" in job.sp:
             if job.sp.job_type == "parent":
                 continue
-        # Skip the calculation if the crystal extents already exist
-        try:
-            job.document["crystal_min_z"]
-            job.document["crystal_max_z"]
-            print("Crystal dimensions already calculated, skipping...")
-            continue
-        except KeyError:
-            pass
+        if not args.overwrite:
+            # Skip the calculation if the crystal extents already exist
+            try:
+                job.document["crystal_min_z"]
+                job.document["crystal_max_z"]
+                print("Crystal dimensions already calculated, skipping...")
+                continue
+            except KeyError:
+                pass
         print("\nConsidering job", job.ws)
         print("".join(["Calculating Z-distribution for ", type_names, "..."]))
         # print(job.statepoint.dimensions)
@@ -298,14 +299,15 @@ def plot_residence_time_per_job(project, args):
         except OSError:
             print(gsd_file_name, "not found. Skipping...")
             continue
-        # Skip the calculation if the residence times have already been calculated
-        try:
-            job.document["mean_residence_time"]
-            job.document["mean_residence_time_error"]
-            print("Mean residence time already calculated, skipping...")
-            continue
-        except KeyError:
-            pass
+        if not args.overwrite:
+            # Skip the calculation if the residence times have already been calculated
+            try:
+                job.document["mean_residence_time"]
+                job.document["mean_residence_time_error"]
+                print("Mean residence time already calculated, skipping...")
+                continue
+            except KeyError:
+                pass
         trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
         type1_ID = trajectory[0].particles.types.index(args.atom_type)
         molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
@@ -442,6 +444,17 @@ if __name__ == "__main__":
             "If a molecule containing args.atom_type has a centre-of-mass location"
             " within args.tolerance of the surface, it is considered as residing on"
             " the surface."
+        ),
+    )
+    parser.add_argument(
+        "-o",
+        "--overwrite",
+        type=str,
+        required=False,
+        action="store_true",
+        help=(
+            "Recalculate any job.document properties and update them, regardless of"
+            " whether they have already been calculated or not."
         ),
     )
     args, directory_list = parser.parse_known_args()
