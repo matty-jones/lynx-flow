@@ -1,5 +1,4 @@
 import csv
-import freud
 import gsd.fl
 import gsd.hoomd
 import os
@@ -16,13 +15,9 @@ from rhaco.simulate import AVOGADRO, BOLTZMANN, KCAL_TO_J, AMU_TO_KG, ANG_TO_M
 
 
 """
-This module plots several RDFs for each job in the workspace.
-10 RDFs are plotted over time as the simulation progresses (data taken from the
-trajectory GSD), as well as an aggregated RDF describing the average over the
-entire simulation.
-Additionally, csv files are written for every RDF to permit subsequent analysis
-All 22 files (2 * 11) are written for each surface atom in the system (Mo, Nb,
-Te, V).
+This module plots the residence time distributions for each job in the workspace.
+Residency is defined as the time that a particular reactant molecule is located within
+a 1nm distance of the surface crystal (configurable by the --tolerance argument).
 """
 
 
@@ -46,6 +41,7 @@ def find_crystal_extents_z(project, type_names, args):
         try:
             job.document["crystal_min_z"]
             job.document["crystal_max_z"]
+            print("Crystal dimensions already calculated, skipping...")
             continue
         except KeyError:
             pass
@@ -191,7 +187,7 @@ def calc_COM(list_of_positions, list_of_atom_types=None, list_of_atom_masses=Non
         print("List of masses", list_of_atom_masses)
         print("Mass weighted", mass_weighted)
         print("Total mass", total_mass)
-        raise SystemError("WOBBEY")
+        raise SystemError("Error in mass calculation.")
     return mass_weighted / float(total_mass)
 
 
@@ -283,7 +279,7 @@ def get_type_positions(AAID_list, frame, crystal_min_z=None, crystal_max_z=None)
     return np.array(type_positions)
 
 
-def plot_residence_time(project, args):
+def plot_residence_time_per_job(project, args):
     for job in project:
         if args.job is not None:
             if job.get_id() != args.job:
@@ -302,6 +298,14 @@ def plot_residence_time(project, args):
         except OSError:
             print(gsd_file_name, "not found. Skipping...")
             continue
+        # Skip the calculation if the residence times have already been calculated
+        try:
+            job.document["mean_residence_time"]
+            job.document["mean_residence_time_error"]
+            print("Mean residence time already calculated, skipping...")
+            continue
+        except KeyError:
+            pass
         trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
         type1_ID = trajectory[0].particles.types.index(args.atom_type)
         molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
@@ -375,6 +379,37 @@ def calculate_residence_times(residence_frames, job):
     return frame_period_SI * np.array(residence_frames)
 
 
+def plot_residence_time_vs_temp(project):
+    temperatures = {}
+    residence_times = {}
+    for job in project:
+        if "job_type" in job.sp:
+            if job.sp.job_type == "parent":
+                continue
+        dimensions = job.sp["dimensions"]
+        temperature = job.sp["temperature"]
+        z_size = job.sp["z_reactor_size"]
+        mean_res_time = job.document["mean_residence_time"]
+        mean_res_time_err = job.document["mean_residence_time_error"]
+        identify_string = "".join(["dims", str(dimensions), "z_size", str(z_size)])
+        if identify_string not in temperatures:
+            temperatures[identify_string] = []
+            residence_times[identify_string] = []
+        temperatures[identify_string].append(temperature)
+        residence_times[identify_string].append([mean_res_time, mean_res_time_err])
+    for key, temp_vals in temperatures.items():
+        res_time_vals = residence_times[key]
+        temp_vals, res_time_vals_combined = zip(*sorted(zip(temp_vals, res_time_vals)))
+        mean_time, error = zip(*res_time_vals_combined)
+        plt.clf()
+        plt.errorbar(temp_vals, np.array(mean_time)/1E-12, yerr=np.array(error)/1E-12)
+        plt.xlabel("Temperature (K)")
+        plt.ylabel("Mean residence time (ps)")
+        fig_name = "".join(["../outputs/", key, "_res_time.pdf"])
+        plt.savefig(fig_name)
+        print("Figure saved as", fig_name)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -411,6 +446,7 @@ if __name__ == "__main__":
     )
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
+    plt.figure()
     surface_atom_types = []
     # schema = project.detect_schema()
     # print(schema["reactant_composition"])
@@ -422,4 +458,6 @@ if __name__ == "__main__":
     surface_atom_types = list(set(surface_atom_types))
     # Plot distribution of z-values for atoms
     find_crystal_extents_z(project, surface_atom_types, args)
-    plot_residence_time(project, args)
+    plot_residence_time_per_job(project, args)
+    if args.job is None:
+        plot_residence_time_vs_temp(project)
