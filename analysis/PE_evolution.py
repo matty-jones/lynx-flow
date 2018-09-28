@@ -34,10 +34,18 @@ def plot_PE_evolution(temperature_data, PE_data, no_plot_melting_point):
         plt.title("".join(["MP = {:.1f}".format(transition_temp)]))
     plt.xlabel("Temperature (K)")
     plt.ylabel("PE (Arb. U.)")
-    save_file = "../outputs/PE.png"
-    plt.savefig(save_file)
+    save_dir = "../outputs"
+    save_file = "PE.png"
+    try:
+        plt.savefig(os.path.join(save_dir, save_file))
+    except FileNotFoundError:
+        os.makedirs(save_dir)
+        plt.savefig(os.path.join(save_dir, save_file))
     plt.clf()
-    print("Potential Energy Evolution plot saved as", save_file)
+    print(
+        "Potential Energy Evolution plot saved as",
+        os.path.join(save_dir, save_file)
+    )
     # plt.figure()
     # plt.plot(temp_centres, dE_dT)
     # plt.title("".join(["Size = ln_", str(size), "_dEdT"]))
