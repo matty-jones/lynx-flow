@@ -51,15 +51,15 @@ def find_crystal_extents_z(project, args):
             except KeyError:
                 pass
         print("\nConsidering job", job.ws)
-        crystal_sep = float(job.sp["crystal_separation"])
+        crystal_offset = float(job.sp["crystal_separation"]) / 2.0
         crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
         dim_z = int(job.sp["dimensions"].split("x")[2])
-        job.document["crystal_top_edge"] = crystal_sep + (dim_z * crystal_z / 2.0)
-        job.document["crystal_bot_edge"] = -(crystal_sep + (dim_z * crystal_z / 2.0))
-        job.document["crystal_top_layer"] = crystal_sep + (
+        job.document["crystal_top_edge"] = crystal_offset + (dim_z * crystal_z / 2.0)
+        job.document["crystal_bot_edge"] = -(crystal_offset + (dim_z * crystal_z / 2.0))
+        job.document["crystal_top_layer"] = crystal_offset + (
             (dim_z - 2) * crystal_z / 2.0
         )
-        job.document["crystal_bot_layer"] = -(crystal_sep + (
+        job.document["crystal_bot_layer"] = -(crystal_offset + (
             (dim_z - 2) * crystal_z / 2.0
         ))
 
@@ -388,7 +388,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--overwrite",
-        type=str,
         required=False,
         action="store_true",
         help=(

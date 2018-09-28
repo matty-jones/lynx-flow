@@ -53,15 +53,15 @@ def find_crystal_extents_z(project, args):
             except KeyError:
                 pass
         print("\nConsidering job", job.ws)
-        crystal_sep = float(job.sp["crystal_separation"])
+        crystal_offset = float(job.sp["crystal_separation"]) / 2.0
         crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
         dim_z = int(job.sp["dimensions"].split("x")[2])
-        job.document["crystal_top_edge"] = crystal_sep + (dim_z * crystal_z / 2.0)
-        job.document["crystal_bot_edge"] = -(crystal_sep + (dim_z * crystal_z / 2.0))
-        job.document["crystal_top_layer"] = crystal_sep + (
+        job.document["crystal_top_edge"] = crystal_offset + (dim_z * crystal_z / 2.0)
+        job.document["crystal_bot_edge"] = -(crystal_offset + (dim_z * crystal_z / 2.0))
+        job.document["crystal_top_layer"] = crystal_offset + (
             (dim_z - 2) * crystal_z / 2.0
         )
-        job.document["crystal_bot_layer"] = -(crystal_sep + (
+        job.document["crystal_bot_layer"] = -(crystal_offset + (
             (dim_z - 2) * crystal_z / 2.0
         ))
 
@@ -217,7 +217,12 @@ def get_type_positions(AAID_list, frame, crystal_min_z=None, crystal_max_z=None)
             type_ID = frame.particles.typeid[AAID]
             atom_type = frame.particles.types[type_ID]
             sublist_types.append(atom_type)
-        type_positions.append(calc_COM(sublist_positions, list_of_atom_types=sublist_types))
+        # Skip calculating the COM if none of the atoms in this molecule/sublist
+        # have satisfied the crystal max and min conditions
+        if len(sublist_positions) > 0:
+            type_positions.append(
+                calc_COM(sublist_positions, list_of_atom_types=sublist_types)
+            )
     return np.array(type_positions)
 
 
@@ -386,7 +391,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--overwrite",
-        type=str,
         required=False,
         action="store_true",
         help=(
