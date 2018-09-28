@@ -347,7 +347,11 @@ def plot_residence_time_vs_temp(project):
         plt.xlabel("Temperature (K)")
         plt.ylabel("Mean residence time (ps)")
         fig_name = "".join(["../outputs/", key, "_res_time.pdf"])
-        plt.savefig(fig_name)
+        try:
+            plt.savefig(fig_name)
+        except FileNotFoundError:
+            os.makedirs("../outputs")
+            plt.savefig(fig_name)
         print("Figure saved as", fig_name)
 
 
