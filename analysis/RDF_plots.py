@@ -387,10 +387,10 @@ if __name__ == "__main__":
         "-o",
         "--overwrite",
         type=str,
-        required=false,
+        required=False,
         action="store_true",
         help=(
-            "recalculate any job.document properties and update them, regardless of"
+            "Recalculate any job.document properties and update them, regardless of"
             " whether they have already been calculated or not."
         ),
     )
