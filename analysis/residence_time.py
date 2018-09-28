@@ -21,13 +21,15 @@ a 1nm distance of the surface crystal (configurable by the --tolerance argument)
 """
 
 
-def find_crystal_extents_z(project, type_names, args):
+def find_crystal_extents_z(project, args):
     """
     This function finds the z coordinates of the outermost layer of crystal,
     i.e. the one that is exposed to the reactant and will actually undergo the
     catalysed reaction.
     This is important when calculating the RDFs to make sure that the features
     do not get washed out as more crystal layers are included.
+    It also calculates the extreme edge of the crystal at the top and bottom, which is
+    important when determining the residence times of the reactants.
     """
     for job in project:
         if args.job is not None:
@@ -40,89 +42,26 @@ def find_crystal_extents_z(project, type_names, args):
         if not args.overwrite:
             # Skip the calculation if the crystal extents already exist
             try:
-                job.document["crystal_min_z"]
-                job.document["crystal_max_z"]
+                job.document["crystal_top_edge"]
+                job.document["crystal_bot_edge"]
+                job.document["crystal_top_layer"]
+                job.document["crystal_bot_layer"]
                 print("Crystal dimensions already calculated, skipping...")
                 continue
             except KeyError:
                 pass
         print("\nConsidering job", job.ws)
-        print("".join(["Calculating Z-distribution for ", type_names, "..."]))
-        # print(job.statepoint.dimensions)
-        # if job.statepoint.dimensions.split('x')[2] != '1':
-        #     continue
-        # save_dir = os.path.join(job.ws, "RDFs")
-        # if not os.path.exists(save_dir):
-        #     os.makedirs(save_dir)
-        gsd_file_name = os.path.join(job.ws, "output_traj.gsd")
-        try:
-            gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
-        except OSError:
-            print(gsd_file_name, "not found. Skipping...")
-            continue
-        trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
-        atom_types = [trajectory[0].particles.types.index(type_name) for type_name in type_names]
-        final_frame = trajectory[-1]
-        atom_posns = final_frame.particles.position[
-            np.where(final_frame.particles.typeid in atom_types)
-        ]
-        n_troughs = 0
-        target_troughs = (int(job.statepoint.dimensions.split("x")[2]) - 1) * 2
-        n_bins = 20
-        bins = None
-        central_bins = None
-        n = None
-        while n_troughs < target_troughs:
-            print("Currently found", n_troughs, "of", target_troughs, "troughs...")
-            n, bins = np.histogram(
-                atom_posns[:, 2],
-                bins=np.linspace(
-                    -float(job.statepoint.crystal_separation),
-                    float(job.statepoint.crystal_separation),
-                    n_bins,
-                ),
-            )
-            # n, bins, patches = plt.hist(atom_posns[:,2], bins = np.linspace(-job.statepoint.crystal_separation, job.statepoint.crystal_separation, n_bins))
-            central_bins = (bins[1:] + bins[:-1]) / 2.0
-            troughs = argrelextrema(n, np.less)[0]
-            n_troughs = len(troughs)
-            smoothed_n = gaussian_filter(n, 1.0)
-            # plt.figure()
-            # plt.title(" ".join(["Z-separation of", type_name]))
-            # plt.plot(central_bins, n)
-            # plt.plot(central_bins, smoothed_n, c='r')
-            # for trough in troughs:
-            #     plt.axvline(central_bins[trough], c='k')
-            # plt.xlabel('Z-separation (Ang)')
-            # plt.ylabel('Frequency (Arb. U.)')
-            # plt.show()
-            # #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
-            # plt.close()
-
-            print("Increasing n_bins from", n_bins, "to", n_bins * 2)
-            n_bins *= 2
-        if n_troughs == 0:
-            # Only one layer, so include everything
-            job.document["crystal_min_z"] = 0.0
-            job.document["crystal_max_z"] = 0.0
-        else:
-            print("Found all", n_troughs, "troughs:")
-            print(troughs)
-            # smoothed_n = gaussian_filter(n, 1.0)
-            # plt.title(" ".join(["Z-separation of", type_name]))
-            # plt.plot(central_bins, n)
-            # plt.plot(central_bins, smoothed_n, c='r')
-            # for trough in troughs:
-            #     plt.axvline(central_bins[trough], c='k')
-            # plt.xlabel('Z-separation (Ang)')
-            # plt.ylabel('Frequency (Arb. U.)')
-            # plt.show()
-            # #plt.savefig(os.path.join(save_dir, av_rdf_title + '.pdf'))
-            # plt.close()
-            trough_positions = [central_bins[x] for x in troughs]
-            print("Trough positions =", [central_bins[x] for x in troughs])
-            job.document["crystal_min_z"] = min(trough_positions)
-            job.document["crystal_max_z"] = max(trough_positions)
+        crystal_sep = float(job.sp["crystal_separation"])
+        crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
+        dim_z = int(job.sp["dimensions"].split("x")[2])
+        job.document["crystal_top_edge"] = crystal_sep + (dim_z * crystal_z / 2.0)
+        job.document["crystal_bot_edge"] = -(crystal_sep + (dim_z * crystal_z / 2.0))
+        job.document["crystal_top_layer"] = crystal_sep + (
+            (dim_z - 2) * crystal_z / 2.0
+        )
+        job.document["crystal_bot_layer"] = -(crystal_sep + (
+            (dim_z - 2) * crystal_z / 2.0
+        ))
 
 
 def calc_COM(list_of_positions, list_of_atom_types=None, list_of_atom_masses=None):
@@ -312,8 +251,8 @@ def plot_residence_time_per_job(project, args):
         type1_ID = trajectory[0].particles.types.index(args.atom_type)
         molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
         type1_AAIDs = list(molID_to_AAIDs.values())
-        z_max = job.document["crystal_max_z"] + args.tolerance
-        z_min = job.document["crystal_min_z"] - args.tolerance
+        z_max = job.document["crystal_top_edge"] + args.tolerance
+        z_min = job.document["crystal_bot_edge"] - args.tolerance
 
         residence_dict = {}
         for frame_no, frame in enumerate(trajectory):
@@ -460,17 +399,8 @@ if __name__ == "__main__":
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
     plt.figure()
-    surface_atom_types = []
-    # schema = project.detect_schema()
-    # print(schema["reactant_composition"])
-    # reactant_atom_types = next(iter(list(schema["reactant_composition"].values())[0]))
-    # print(reactant_atom_types, type(reactant_atom_types))
-    # exit()
-    for stoic_dict_str, _ in project.groupby('stoichiometry'):
-        surface_atom_types += list(eval(stoic_dict_str).keys())
-    surface_atom_types = list(set(surface_atom_types))
-    # Plot distribution of z-values for atoms
-    find_crystal_extents_z(project, surface_atom_types, args)
+    # Find the crystal extents and append them to the job documents
+    find_crystal_extents_z(project, args)
     plot_residence_time_per_job(project, args)
     if args.job is None:
         plot_residence_time_vs_temp(project)
