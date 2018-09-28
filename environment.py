@@ -163,7 +163,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("#SBATCH --gres=gpu:1")
 
         js.writeline("on-conda")
-        js.writeline("module load cuda80/toolkit/8.0.61")
+        js.writeline("module load cuda91/toolkit/9.1.85")
         js.writeline("source activate rhaco")
 
         return js
