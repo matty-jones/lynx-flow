@@ -383,6 +383,17 @@ if __name__ == "__main__":
             "If present, only consider the job in the current directory's workspace."
         ),
     )
+    parser.add_argument(
+        "-o",
+        "--overwrite",
+        type=str,
+        required=false,
+        action="store_true",
+        help=(
+            "recalculate any job.document properties and update them, regardless of"
+            " whether they have already been calculated or not."
+        ),
+    )
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
     # Find crystal extents for each job in the project
