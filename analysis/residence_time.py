@@ -253,6 +253,8 @@ def plot_residence_time_per_job(project, args):
         type1_AAIDs = list(molID_to_AAIDs.values())
         z_max = job.document["crystal_top_edge"] + args.tolerance
         z_min = job.document["crystal_bot_edge"] - args.tolerance
+        cryst_top = job.sp["crystal_separation"] / 2.0
+        cryst_bot = -job.sp["crystal_separation"] / 2.0
 
         residence_dict = {}
         for frame_no, frame in enumerate(trajectory):
@@ -270,8 +272,14 @@ def plot_residence_time_per_job(project, args):
             type1_pos = get_type_positions(type1_AAIDs, frame)
             # Brute force approach, check all mols every frame
             for mol_ID, position in enumerate(type1_pos):
-                if (position[2] > z_min) and (position[2] < z_max):
+                if ((position[2] < z_max) and (position[2] > cryst_top)) or (
+                    (position[2] > z_min) and (position[2] < cryst_bot)
+                ):
                     # Molecule is residing
+                    # The extra check for cryst_top and cryst_bot comes from sometimes
+                    # at high temperatures and taus, the reactants can end up in the
+                    # middle of the box (between the crystal planes), where they will
+                    # always be listed as residing, messing up the stats
                     if mol_ID in residence_dict:
                         residence_dict[mol_ID].append(frame_no)
                     else:
