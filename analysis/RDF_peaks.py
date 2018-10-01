@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 import pandas as pd
 import numpy as np
-from scipy.signal import argrelextrema
+import scipy.signal as signal
 from scipy.ndimage import gaussian_filter
 
 """
@@ -42,24 +42,27 @@ def get_first_peak(project, surface_atom_type=None):
         plt.xlabel("r (Ang)")
         plt.ylabel("RDF (Arb. U.)")
         figure_file = csv_file_location.replace(".csv", "_smooth.pdf")
-        peaks = argrelextrema(smoothed_RDF, np.greater)
-        first_two_peaks = [RDF_Data["r"].values[x] for x in peaks[0][:2]]
-        if len(first_two_peaks) == 1:
-            title = "Peaks @ [{:.2f}]".format(*first_two_peaks)
+        peaks = signal.argrelextrema(smoothed_RDF, np.greater)
+        # Attempt 2: Use scipy.signal to find the peaks automatically based on the
+        # non-smoothed RDF
+        signal_peaks = signal.find_peaks_cwt(RDF_Data["g(r)"], np.arange(1, 10), noise_perc=10)
+        signal_peak_loc = [RDF_Data["r"][i] for i in signal_peaks]
+        signal_peak_val = [RDF_Data["g(r)"][i] for i in signal_peaks]
+        if len(signal_peaks) == 1:
+            title = "Peaks @ [{:.2f}]".format(signal_peak_loc[0])
         else:
-            title = "Peaks @ [{:.2f}, {:.2f}]".format(*first_two_peaks)
+            title = "Peaks @ [{:.2f}, {:.2f}]".format(*signal_peak_loc[:2])
         plt.title(title)
         try:
             # Update job document with the first peak data
-            first_peak = [RDF_Data["r"].values[peaks[0][0]], smoothed_RDF[peaks[0][0]]]
-            job.document["".join(["RDF_first_peak_", surface_atom_type])] = first_peak
+            job.document["".join(["RDF_first_peak_", surface_atom_type])] = signal_peak_loc[0]
             # Update job document with the second peak data
-            second_peak = [RDF_Data["r"].values[peaks[0][1]], smoothed_RDF[peaks[0][1]]]
-            job.document["".join(["RDF_second_peak_", surface_atom_type])] = second_peak
+            job.document["".join(["RDF_second_peak_", surface_atom_type])] = signal_peak_loc[1]
         except IndexError:
-            print("Only", len(peaks), "peaks found.")
+            print("Only", len(signal_peaks), "peaks found.")
             print("Check", figure_file, "for more details")
             pass
+        plt.scatter(signal_peak_loc[:2], signal_peak_val[:2], c="g", s=100.0, marker="x", zorder=10)
         plt.savefig(figure_file)
         plt.close()
 
