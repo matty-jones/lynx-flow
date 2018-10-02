@@ -12,6 +12,10 @@ from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter
 
 
+def flatten(input_list):
+    return [item for sublist in input_list for item in sublist]
+
+
 def calculate_yz_profile(job, z_lim):
     print("\nCalculating YZ-Plane profile for", job.ws)
     save_dir = os.path.join(job.ws, "YZ_profile")
@@ -46,29 +50,21 @@ def calculate_yz_profile(job, z_lim):
     else:
         deepest_trough = troughs
     plt.plot(central_bins, smoothed_n)
+    plt.xlabel("X position (Ang)")
+    plt.ylabel("Particles in Slice (Arb. U.)")
     try:
         plt.title("Neck = {:.3f}".format(float(smoothed_n[deepest_trough])))
+        plt.savefig(os.path.join(save_dir, "yz_profile.png"))
+        return smoothed_n[troughs][0]
     except TypeError:
         print("NECK NOT FOUND FOR THIS JOB")
         plt.title("NECK NOT FOUND")
-    plt.xlabel("X position (Ang)")
-    plt.ylabel("Particles in Slice (Arb. U.)")
-    plt.savefig(os.path.join(save_dir, "yz_profile.png"))
-    return smoothed_n[troughs][0]
+        plt.savefig(os.path.join(save_dir, "yz_profile.png"))
+        return 0.0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-j",
-        "--job",
-        type=str,
-        required=False,
-        default=None,
-        help=(
-            "If present, only consider the job in the current directory's workspace."
-        ),
-    )
     parser.add_argument(
         "-z",
         "--z_lim",
@@ -81,24 +77,27 @@ if __name__ == "__main__":
     )
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
-    job_temperatures = []
-    job_neck_widths = []
+    schema = project.detect_schema()
     plt.figure()
-    for job in project:
-        if args.job is not None:
-            if job.get_id() != args.job:
-                continue
-        if (job.sp.job_type == "parent"):
-            continue
-        temperature = job.sp.temperature
-        neck_width = calculate_yz_profile(job, args.z_lim)
-        job_temperatures.append(temperature)
-        job_neck_widths.append(neck_width)
-    job_temperatures, job_neck_widths = zip(*sorted(zip(job_temperatures, job_neck_widths)))
-    plt.clf()
-    plt.plot(job_temperatures, job_neck_widths)
-    plt.xlabel("Temperature (K)")
-    plt.ylabel("Neck width (Ang)")
-    save_file = "../outputs/neck_evolution.png"
-    plt.savefig(save_file)
-    print("Sintering Neck Evolution plot saved as", save_file)
+    for tau_val in flatten(list(schema["tau"].values())):
+        job_temperatures = []
+        job_neck_widths = []
+        print("Examining tau =", tau_val)
+        for job in project.find_jobs(
+            {
+                "tau": tau_val,
+                "job_type": "child",
+            }
+        ):
+            temperature = job.sp.temperature
+            neck_width = calculate_yz_profile(job, args.z_lim)
+            job_temperatures.append(temperature)
+            job_neck_widths.append(neck_width)
+        job_temperatures, job_neck_widths = zip(*sorted(zip(job_temperatures, job_neck_widths)))
+        plt.clf()
+        plt.plot(job_temperatures, job_neck_widths)
+        plt.xlabel("Temperature (K)")
+        plt.ylabel("Neck width (Ang)")
+        save_file = "../outputs/neck_evolution_tau_{:4.2f}.png".format(tau_val)
+        plt.savefig(save_file)
+        print("Sintering Neck Evolution plot saved as", save_file)
