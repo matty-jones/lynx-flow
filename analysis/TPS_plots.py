@@ -24,13 +24,17 @@ def extract_av_tps(file_name):
     return None
 
 
+def flatten(input_list):
+    return [item for sublist in input_list for item in sublist]
+
+
 def plot_tpses(project):
     schema = project.detect_schema()
     colours = pl.cm.plasma(np.linspace(0, 1, 4))
-    for dimension in list(schema["dimensions"].values())[0]:
+    for dimension in flatten(list(schema["dimensions"].values())):
         print("Creating plot for dimensions =", dimension)
         plt.figure()
-        for index, z_reactor_size in enumerate(list(schema["z_reactor_size"].values())[0]):
+        for index, z_reactor_size in enumerate(flatten(list(schema["z_reactor_size"].values()))):
             print("Plotting line for reactor size =", z_reactor_size)
             temperatures = []
             tpses = []
