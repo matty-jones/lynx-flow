@@ -91,18 +91,28 @@ def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
     # Firstly create the simulation box so that Freud can do the periodic stuff
     simulation_box = freud.box.Box(*job_frame.configuration.box)
     # Get the set of the mesh_IDs for later
-    mesh_IDs = set(np.arange(mesh_size))
+    # mesh_IDs = set(np.arange(mesh_size))
     # Calculate the cell list based on the input cut_off (same as used in the sim)
     cell_list = freud.locality.LinkCell(simulation_box, cut_off)
     # Compute the neighbourlist for all particles in the crystal and mesh
     cell_list.compute(simulation_box, crystal_mesh_posns)
     neighbour_list = cell_list.nlist
-    # Create a neighbourlist dictionary of crystal_IDs for each probe atom in the mesh
+    return neighbour_list
+
+
+def create_neighbourlist_lookup(neighbour_list, mesh_size):
     nlist = {}
-    for probe_ID in range(mesh_size):
-        # Set manipulation
-        neighbour_IDs = set(neighbour_list.index_j[neighbour_list.index_i == probe_ID])
-        nlist[probe_ID] = list(neighbour_IDs - mesh_IDs)
+    mesh_IDs = np.arange(mesh_size)
+    for probe_ID in np.arange(mesh_size):
+        # Numpy setdiff1d manipulation
+        neighbour_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
+        nlist[probe_ID] = np.setdiff1d(neighbour_IDs, mesh_IDs, assume_unique=True)
+
+        # # Set manipulation (this is about the same speed as above)
+        # neighbour_IDs = set(neighbour_list.index_j[neighbour_list.index_i == probe_ID])
+        # nlist[probe_ID] = list(neighbour_IDs - mesh_IDs)
+        # print(nlist[probe_ID])
+        # print("Set manipulation time =", t1 - t0)
 
         # # Original
         # crystal_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
@@ -123,9 +133,8 @@ def calculate_potentials(
     if len(ff_coeffs["external_forcefields"]) > 0:
         raise SystemError("EXTERNAL FORCEFIELD DETECTED (E.G. EAM), CANNOT INTERPRET")
     probe_atoms = {}
-    for probe_index in range(n_probes):
-        probe_atoms[probe_index] = [crystal_mesh_posns[probe_index]]
     for probe_ID, neighbours in nlist.items():
+        probe_atoms[probe_ID] = [crystal_mesh_posns[probe_ID]]
         type_1 = crystal_mesh_types[probe_ID]
         pos_1 = crystal_mesh_posns[probe_ID]
         types_2 = crystal_mesh_types[neighbours]
@@ -190,23 +199,41 @@ def LJ_pair_potential_vec(coeffs, type1, type2, type1_posn, type2_posn):
 
 
 def create_potential_array(potential_dict, mesh_shape, args):
+    # Only need the potential array to be a 2D matrix
     potential_array = np.zeros(mesh_shape)
     lattice_spacing = args.mesh_spacing
     # Obtain the mesh_positions
     mesh_details = np.array([np.append(val[0], [val[1]]) for val in potential_dict.values()])
-    # We're not going to need the z values so we can drop those here.
-    mesh_posns = mesh_details[:,[0,1]]
+    # We'll treat the z values seperately so drop those here.
+    mesh_posns_xy = mesh_details[:,[0,1]]
+    mesh_posns_z = mesh_details[:,2]
     mesh_potentials = mesh_details[:,3]
+    # Treat the XY positions first:
     # Since we are no longer operating in coordinate space, shift the positions
     # so that the bottom left (-large_x, -large_y) is now the origin
-    offset = np.array([np.min(mesh_posns[:,axis]) for axis in range(2)])
-    mesh_posns -= offset
+    offset = np.array([np.min(mesh_posns_xy[:,axis]) for axis in range(2)])
+    mesh_posns_xy -= offset
     # Divide by the lattice spacing
-    mesh_posns /= lattice_spacing
-    # Drop the z_coordinate as we don't need it, and remap the matrix as integers
-    mesh_posns = np.array(mesh_posns[:,[0,1]], dtype=int)
+    mesh_posns_xy /= lattice_spacing
+    # Remap the matrix as integers
+    mesh_posns_xy = np.array(mesh_posns_xy, dtype=int)
+    # Now treat the Z positions:
+    z_lookup = {
+        key: val for val, key in enumerate(
+            sorted(list(np.unique(mesh_posns_z)))
+        )
+    }
+    print(z_lookup)
+    print(mesh_posns_z)
+    # Recast mesh_posns_z based on the lookup table
+    mesh_posns_z = np.vectorize(z_lookup.get)(mesh_posns_z)
+    # Finally, recombine the mesh_posns
+    #### THIS BIT DOESN'T WORK
+    print(np.hstack([mesh_posns_xy, mesh_posns_z]))
+    exit()
+
     for probe_ID, probe_posn in enumerate(mesh_posns):
-        potential_array[probe_posn[0], probe_posn[1]] = mesh_potentials[probe_ID]
+        potential_array[probe_posn[0], probe_posn[1], probe_posn[2]] = mesh_potentials[probe_ID]
     # As our origin is currently the bottom left (-large_x, -large_y), but array
     # plotting subroutines have the origin in the top left, we need to flip the array
     potential_array = np.flip(potential_array, 0)
@@ -259,6 +286,7 @@ class create_slider(object):
     def update(self, val):
         slice_index, discrete_val = find_nearest(self.z_range, val)
         new_slice = self.input_array[slice_index]
+        print(val, slice_index, discrete_val)
         self.heatmap.set_data(new_slice)
 
 
@@ -369,22 +397,29 @@ if __name__ == "__main__":
         job_frame = get_job_frame(job)
         crystal_posns, crystal_types = get_surface_atoms(job, job_frame)
         mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, z_range, args)
+        mesh_size = np.prod(mesh_shape)
         crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
         crystal_mesh_types = np.hstack([mesh_types, crystal_types])
+        # Use Freud to create an nlist of all mesh and crystal atoms
         print("Calculating the LinkedCell neighbourlist...")
-        nlist = create_freud_nlist(
+        neighbour_list = create_freud_nlist(
             job_frame,
             crystal_mesh_posns,
-            np.prod(mesh_shape),
+            mesh_size,
             args.r_cut
         )
-        for z_index, z_val in enumerate(z_range):
-            print("\rCalculating potentials for z_slice {:d} of {:d}".format(z_index, len(z_range)), end="")
-            potential_dict = calculate_potentials(
-                job, nlist, np.prod(mesh_shape), crystal_mesh_posns, crystal_mesh_types,
-                args.u_max,
-            )
-            potential_array = create_potential_array(potential_dict, mesh_shape, args)
-            potential_array_3d.append(potential_array)
+        # Create an nlist dictionary of crystal_IDs for each probe atom in the mesh
+        print("Calculating the neighbourlist hash table...")
+        nlist = create_neighbourlist_lookup(neighbour_list, mesh_size)
+        print("Calculating potentials for each z_slice...")
+        potential_dict = calculate_potentials(
+            job, nlist, mesh_size, crystal_mesh_posns, crystal_mesh_types,
+            args.u_max,
+        )
+        potential_array_3d = create_potential_array(potential_dict, mesh_shape, args)
+        test = [frame[:5,:5] for frame in potential_array_3d]
+        for i in range(len(test)):
+            print("I =", i)
+            print(test)
         exit()
         plot_heatmap(np.array(potential_array_3d), z_range, args)
