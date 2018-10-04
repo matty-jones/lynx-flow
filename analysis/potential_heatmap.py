@@ -117,6 +117,7 @@ def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
 def calculate_potentials(
     job, nlist, n_probes, crystal_mesh_posns, crystal_mesh_types, u_max
 ):
+    # Vectorised version
     ff_coeffs = rhaco.simulate.get_coeffs(os.path.join(job.ws, "output.hoomdxml"))
     pair_coeffs = {coeff[0]: [coeff[1], coeff[2]] for coeff in ff_coeffs["pair_coeffs"]}
     if len(ff_coeffs["external_forcefields"]) > 0:
@@ -124,21 +125,42 @@ def calculate_potentials(
     probe_atoms = {}
     for probe_index in range(n_probes):
         probe_atoms[probe_index] = [crystal_mesh_posns[probe_index]]
-    # NOTE If this is slow, then consider vectorizing it by passing in all neighbours
-    # at once
     for probe_ID, neighbours in nlist.items():
-        potential = 0.0
         type_1 = crystal_mesh_types[probe_ID]
         pos_1 = crystal_mesh_posns[probe_ID]
-        for neighbour_ID in neighbours:
-            type_2 = crystal_mesh_types[neighbour_ID]
-            pos_2 = crystal_mesh_posns[neighbour_ID]
-            potential += LJ_pair_potential(pair_coeffs, type_1, type_2, pos_1, pos_2)
-        # If the potential is more than about 5 then there's no chance of the particle
-        # being there, so set this as a cap
-        if (u_max is not None) and (potential > u_max):
-            potential = u_max
-        probe_atoms[probe_ID].append(potential)
+        types_2 = crystal_mesh_types[neighbours]
+        posns_2 = crystal_mesh_posns[neighbours]
+        potential = np.sum(LJ_pair_potential_vec(pair_coeffs, type_1, types_2, pos_1, posns_2))
+        if u_max is not None:
+            potential = np.clip(potential, None, u_max)
+        probe_atoms[probe_ID].append(np.sum(potential))
+
+    # # For loop version
+    # ff_coeffs = rhaco.simulate.get_coeffs(os.path.join(job.ws, "output.hoomdxml"))
+    # pair_coeffs = {coeff[0]: [coeff[1], coeff[2]] for coeff in ff_coeffs["pair_coeffs"]}
+    # if len(ff_coeffs["external_forcefields"]) > 0:
+    #     raise SystemError("EXTERNAL FORCEFIELD DETECTED (E.G. EAM), CANNOT INTERPRET")
+    # probe_atoms = {}
+    # for probe_index in range(n_probes):
+    #     probe_atoms[probe_index] = [crystal_mesh_posns[probe_index]]
+    # # NOTE If this is slow, then consider vectorizing it by passing in all neighbours
+    # # at once
+    # for probe_ID, neighbours in nlist.items():
+    #     potential = 0.0
+    #     potential_values = []
+    #     type_1 = crystal_mesh_types[probe_ID]
+    #     pos_1 = crystal_mesh_posns[probe_ID]
+    #     for neighbour_ID in neighbours:
+    #         type_2 = crystal_mesh_types[neighbour_ID]
+    #         pos_2 = crystal_mesh_posns[neighbour_ID]
+    #         potential_increment = LJ_pair_potential(pair_coeffs, type_1, type_2, pos_1, pos_2)
+    #         potential_values.append(potential_increment)
+    #         potential += potential_increment
+    #     # If the potential is more than about 5 then there's no chance of the particle
+    #     # being there, so set this as a cap
+    #     if (u_max is not None) and (potential > u_max):
+    #         potential = u_max
+    #     probe_atoms[probe_ID].append(potential)
     return probe_atoms
 
 
@@ -147,6 +169,21 @@ def LJ_pair_potential(coeffs, type1, type2, type1_posn, type2_posn):
     epsilon = np.sqrt(coeffs[type1][0] * coeffs[type2][0])
     sigma = np.sqrt(coeffs[type1][1] * coeffs[type2][1])
     r = np.sqrt(np.sum((np.array(type1_posn) - np.array(type2_posn)) ** 2))
+    # Lennard-Jones 12-6 formula
+    potential = 4 * epsilon * ((sigma / r) ** 12 - (sigma / r) ** 6)
+    return potential
+
+
+def LJ_pair_potential_vec(coeffs, type1, type2, type1_posn, type2_posn):
+    # Create a vectorized dictionary lookup
+    v_lookup = np.vectorize(lambda dic, val, ix: dic[val][ix])
+    # Obtain the epsilon, sigma and separation matrices
+    epsilon_atom2 = v_lookup(coeffs, type2, 0)
+    sigma_atom2 = v_lookup(coeffs, type2, 1)
+    r = np.sqrt(np.sum((np.array(type1_posn) - np.array(type2_posn)) ** 2, axis=1))
+    # Using the geometric mixing rules
+    epsilon = np.sqrt(coeffs[type1][0] * epsilon_atom2)
+    sigma = np.sqrt(coeffs[type1][1] * sigma_atom2)
     # Lennard-Jones 12-6 formula
     potential = 4 * epsilon * ((sigma / r) ** 12 - (sigma / r) ** 6)
     return potential
