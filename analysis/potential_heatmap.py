@@ -13,6 +13,8 @@ import freud.box
 import rhaco.simulate
 from matplotlib.widgets import Slider
 
+import time as T
+
 """
 This module plots the residence time distributions for each job in the workspace.
 Residency is defined as the time that a particular reactant molecule is located within
@@ -55,15 +57,16 @@ def get_surface_atoms(job, morphology):
     return surface_posns, surface_type
 
 
-def create_mesh(morphology, z_position, args):
+def create_mesh(morphology, z_range, args):
     lattice_spacing = args.mesh_spacing
     mesh_type = args.mesh_type
     box_dims = morphology.configuration.box[:3]
     # Work out all of the x, y, and z values
     x_vals = np.arange(-box_dims[0]/2.0, box_dims[0]/2.0, lattice_spacing)
     y_vals = np.arange(-box_dims[1]/2.0, box_dims[1]/2.0, lattice_spacing)
-    z_vals = np.array([z_position])
-    mesh_shape = (len(x_vals), len(y_vals))
+    z_vals = z_range
+    mesh_shape = (len(x_vals), len(y_vals), len(z_vals))
+    print("Creating mesh of shape", mesh_shape, "...")
     # Create the mesh coordinates using vstack and meshgrid
     mesh_coords = np.vstack(np.meshgrid(x_vals, y_vals, z_vals)).reshape(3, -1).T
     # Now centre the mesh over the middle
@@ -97,9 +100,17 @@ def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
     # Create a neighbourlist dictionary of crystal_IDs for each probe atom in the mesh
     nlist = {}
     for probe_ID in range(mesh_size):
+        # Set manipulation
         neighbour_IDs = set(neighbour_list.index_j[neighbour_list.index_i == probe_ID])
+        nlist[probe_ID] = list(neighbour_IDs - mesh_IDs)
+
+        # # Original
         # crystal_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
-        nlist[probe_ID] = list(neighbour_IDs - mesh_IDs) # [int(ID) for ID in crystal_IDs if ID >= mesh_size]
+        # nlist[probe_ID] = [int(ID) for ID in crystal_IDs if ID >= mesh_size]
+
+        # # Array masking
+        # neighbour_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
+        # nlist[probe_ID] = neighbour_IDs[neighbour_IDs >= mesh_size]
     return nlist
 
 
@@ -320,19 +331,20 @@ if __name__ == "__main__":
         z_range = get_z_range(job, args.z_step)
         job_frame = get_job_frame(job)
         crystal_posns, crystal_types = get_surface_atoms(job, job_frame)
+        mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, z_range, args)
+        crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
+        crystal_mesh_types = np.hstack([mesh_types, crystal_types])
+        print("Calculating the LinkedCell neighbourlist...")
+        nlist = create_freud_nlist(
+            job_frame,
+            crystal_mesh_posns,
+            np.prod(mesh_shape),
+            args.r_cut
+        )
         for z_index, z_val in enumerate(z_range):
             print("\rCalculating potentials for z_slice {:d} of {:d}".format(z_index, len(z_range)), end="")
-            mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, z_val, args)
-            crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
-            crystal_mesh_types = np.hstack([mesh_types, crystal_types])
-            nlist = create_freud_nlist(
-                job_frame,
-                crystal_mesh_posns,
-                len(mesh_posns),
-                args.r_cut
-            )
             potential_dict = calculate_potentials(
-                job, nlist, len(mesh_posns), crystal_mesh_posns, crystal_mesh_types,
+                job, nlist, np.prod(mesh_shape), crystal_mesh_posns, crystal_mesh_types,
                 args.u_max,
             )
             potential_array = create_potential_array(potential_dict, mesh_shape, args)
