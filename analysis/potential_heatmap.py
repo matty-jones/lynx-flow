@@ -11,6 +11,7 @@ import argparse
 import freud.locality
 import freud.box
 import rhaco.simulate
+from matplotlib.widgets import Slider
 
 """
 This module plots the residence time distributions for each job in the workspace.
@@ -54,10 +55,9 @@ def get_surface_atoms(job, morphology):
     return surface_posns, surface_type
 
 
-def create_mesh(morphology, args):
+def create_mesh(morphology, z_position, args):
     lattice_spacing = args.mesh_spacing
     mesh_type = args.mesh_type
-    z_position = args.z_val
     box_dims = morphology.configuration.box[:3]
     # Work out all of the x, y, and z values
     x_vals = np.arange(-box_dims[0]/2.0, box_dims[0]/2.0, lattice_spacing)
@@ -162,8 +162,22 @@ def create_potential_array(potential_dict, mesh_shape, args):
     return potential_array
 
 
-def plot_heatmap(input_array):
-    plt.clf()
+def get_z_range(job, z_step):
+    crystal_offset = float(job.sp["crystal_separation"]) / 2.0
+    crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
+    dim_z = int(job.sp["dimensions"].split("x")[2])
+    # Calculated as the job.document["crystal_top_layer"]
+    z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
+    # Calculated as the job.document["crystal_top_edge"]
+    top_edge = crystal_offset + (dim_z * crystal_z / 2.0)
+    # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then updat3
+    # this)
+    z_max = top_edge + 10.0
+    return np.arange(z_min, z_max, z_step)
+
+
+def plot_heatmap(input_array, z_range, args):
+    fig, ax = plt.subplots()
     # Reverse the colour map so that the `hot spots' show places where particles are
     # more likely to reside (i.e. lower potential energy)
     colour_map = plt.get_cmap("inferno_r")
@@ -172,11 +186,45 @@ def plot_heatmap(input_array):
         vmax=np.max(input_array),
     )
     scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=colour_map)
-    plt.imshow(input_array, cmap=colour_map, interpolation='nearest')
+    heatmap = plt.imshow(input_array[0], cmap=colour_map, interpolation='nearest')
     # Create the colour bar
-    scalar_map.set_array(input_array)
+    scalar_map.set_array(input_array.flatten())
     cbar = plt.colorbar(scalar_map, aspect=20)
+    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], axisbg='black')
+    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, args)
     plt.show()
+
+
+class create_slider(object):
+    def __init__(self, axis, z_range, input_array, heatmap, args):
+        z_min = np.min(z_range)
+        z_max = np.max(z_range)
+        self.z_range = z_range
+        self.input_array = input_array
+        self.heatmap = heatmap
+        self.slider = Slider(axis, r'$z$', z_min, z_max, valinit=z_min)
+        self.slider.on_changed(self.update)
+
+    def update(self, val):
+        slice_index, discrete_val = find_nearest(self.z_range, val)
+        new_slice = self.input_array[slice_index]
+        self.heatmap.set_data(new_slice)
+
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    index = (np.abs(array - value)).argmin()
+    return index, array[index]
+
+
+
+def update(zval):
+    global input_array
+    z_val = s_zval.val
+    z_slice = input_array[zval]
+    img_plt.set_data(z_slice)
+
+
 
 
 def flatten(input_list):
@@ -195,23 +243,23 @@ if __name__ == "__main__":
             "If present, only consider the job in the current directory's workspace"
         ),
     )
-    parser.add_argument(
-        "-i",
-        "--interactive",
-        required=False,
-        action="store_true",
-        help=(
-            "Open the heatmap in interactive mode"
-        ),
-    )
+    # parser.add_argument(
+    #     "-i",
+    #     "--interactive",
+    #     required=False,
+    #     action="store_true",
+    #     help=(
+    #         "Open the heatmap in interactive mode"
+    #     ),
+    # )
     parser.add_argument(
         "-z",
-        "--z_val",
+        "--z_step",
         type=float,
         required=False,
-        default=20.0,
+        default=0.5,
         help=(
-            "The z value to use when interactive mode is not activated"
+            "The z step to use (in ang)"
         ),
     )
     parser.add_argument(
@@ -261,26 +309,29 @@ if __name__ == "__main__":
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
     schema = project.detect_schema()
-    plt.figure()
+    potential_array_3d = []
     # Find the crystal extents and append them to the job documents
     for job in project:
         if (args.job is not None) and (job.get_id() != args.job):
             continue
+        z_range = get_z_range(job, args.z_step)
         job_frame = get_job_frame(job)
         crystal_posns, crystal_types = get_surface_atoms(job, job_frame)
-        mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, args)
-        crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
-        crystal_mesh_types = np.hstack([mesh_types, crystal_types])
-        nlist = create_freud_nlist(
-            job_frame,
-            crystal_mesh_posns,
-            len(mesh_posns),
-            args.r_cut
-        )
-        potential_dict = calculate_potentials(
-            job, nlist, len(mesh_posns), crystal_mesh_posns, crystal_mesh_types,
-            args.u_max,
-        )
-        potential_array = create_potential_array(potential_dict, mesh_shape, args)
-        plot_heatmap(potential_array)
-    plt.close()
+        for z_index, z_val in enumerate(z_range):
+            print("\rCalculating potentials for z_slice {:d} of {:d}".format(z_index, len(z_range)), end="")
+            mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, z_val, args)
+            crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
+            crystal_mesh_types = np.hstack([mesh_types, crystal_types])
+            nlist = create_freud_nlist(
+                job_frame,
+                crystal_mesh_posns,
+                len(mesh_posns),
+                args.r_cut
+            )
+            potential_dict = calculate_potentials(
+                job, nlist, len(mesh_posns), crystal_mesh_posns, crystal_mesh_types,
+                args.u_max,
+            )
+            potential_array = create_potential_array(potential_dict, mesh_shape, args)
+            potential_array_3d.append(potential_array)
+        plot_heatmap(np.array(potential_array_3d), z_range, args)
