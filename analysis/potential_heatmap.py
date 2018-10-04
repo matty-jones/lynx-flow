@@ -87,6 +87,8 @@ def create_mesh(morphology, z_position, args):
 def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
     # Firstly create the simulation box so that Freud can do the periodic stuff
     simulation_box = freud.box.Box(*job_frame.configuration.box)
+    # Get the set of the mesh_IDs for later
+    mesh_IDs = set(np.arange(mesh_size))
     # Calculate the cell list based on the input cut_off (same as used in the sim)
     cell_list = freud.locality.LinkCell(simulation_box, cut_off)
     # Compute the neighbourlist for all particles in the crystal and mesh
@@ -95,8 +97,9 @@ def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
     # Create a neighbourlist dictionary of crystal_IDs for each probe atom in the mesh
     nlist = {}
     for probe_ID in range(mesh_size):
-        crystal_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
-        nlist[probe_ID] = [int(ID) for ID in crystal_IDs if ID >= mesh_size]
+        neighbour_IDs = set(neighbour_list.index_j[neighbour_list.index_i == probe_ID])
+        # crystal_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
+        nlist[probe_ID] = list(neighbour_IDs - mesh_IDs) # [int(ID) for ID in crystal_IDs if ID >= mesh_size]
     return nlist
 
 
@@ -334,4 +337,5 @@ if __name__ == "__main__":
             )
             potential_array = create_potential_array(potential_dict, mesh_shape, args)
             potential_array_3d.append(potential_array)
+        exit()
         plot_heatmap(np.array(potential_array_3d), z_range, args)
