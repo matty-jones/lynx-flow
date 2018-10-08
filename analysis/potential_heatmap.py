@@ -132,9 +132,12 @@ def calculate_potentials(
         pos_1 = crystal_mesh_posns[probe_ID]
         types_2 = crystal_mesh_types[neighbours]
         posns_2 = crystal_mesh_posns[neighbours]
-        potential = np.sum(LJ_pair_potential_vec(pair_coeffs, type_1, types_2, pos_1, posns_2))
-        if u_max is not None:
-            potential = np.clip(potential, None, u_max)
+        try:
+            potential = np.sum(LJ_pair_potential_vec(pair_coeffs, type_1, types_2, pos_1, posns_2))
+            if u_max is not None:
+                potential = np.clip(potential, None, u_max)
+        except ValueError:
+            potential = 0.0
         probe_atoms[probe_ID].append(np.sum(potential))
 
     # # For loop version
@@ -242,18 +245,21 @@ def get_z_range(job, z_step):
     return np.arange(z_min, z_max, z_step)
 
 
-def save_heatmap(input_array, z_range, job):
-    fig, ax = plt.subplots()
+def get_colour_maps(input_array):
     # Reverse the colour map so that the `hot spots' show places where particles are
     # more likely to reside (i.e. lower potential energy)
+    vmin = np.min(input_array)
+    vmax = np.max(input_array)
     colour_map = plt.get_cmap("inferno_r")
-    c_norm = matplotlib.colors.Normalize(
-        vmin=np.min(input_array),
-        vmax=np.max(input_array),
-    )
+    c_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
     scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=colour_map)
-    # Create the colour bar
     scalar_map.set_array(input_array.flatten())
+    return scalar_map, colour_map, vmin, vmax
+
+
+def save_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, job):
+    fig, ax = plt.subplots()
+    # Create the colour bar
     cbar = plt.colorbar(scalar_map, aspect=20)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
@@ -266,6 +272,8 @@ def save_heatmap(input_array, z_range, job):
             input_array[:,:,z_val],
             cmap=colour_map,
             interpolation='bilinear',
+            vmin=vmin,
+            vmax=vmax,
         )
         plt.title("Z = {:.2f} A".format(z_range[z_val]))
         plt.savefig(os.path.join(save_dir, "slice_{:04d}.png".format(z_val)))
@@ -273,25 +281,30 @@ def save_heatmap(input_array, z_range, job):
     return scalar_map, colour_map
 
 
-def show_heatmap(input_array, z_range, colour_map, scalar_map, args):
+def show_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, args):
     fig, ax = plt.subplots()
-    heatmap = plt.imshow(input_array[:,:,0], cmap=colour_map, interpolation="bilinear")
+    heatmap = plt.imshow(
+        input_array[:,:,0], cmap=colour_map, interpolation="bilinear",
+        vmin=vmin, vmax=vmax,
+    )
     cbar = plt.colorbar(scalar_map, aspect=20)
     ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], facecolor="black")
-    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, colour_map, args)
+    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, colour_map, vmin, vmax, args)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     plt.show()
 
 
 class create_slider(object):
-    def __init__(self, axis, z_range, input_array, heatmap, colour_map, args):
+    def __init__(self, axis, z_range, input_array, heatmap, colour_map, vmin, vmax, args):
         z_min = np.min(z_range)
         z_max = np.max(z_range)
         self.z_range = z_range
         self.input_array = input_array
         self.heatmap = heatmap
         self.colour_map = colour_map
+        self.vmin = vmin
+        self.vmax = vmax
         self.slider = Slider(axis, r"$z$", z_min, z_max, valinit=z_min)
         self.slider.on_changed(self.update)
 
@@ -300,9 +313,13 @@ class create_slider(object):
         new_slice = self.input_array[:,:,slice_index]
         heatmap_axes = self.heatmap.axes
         heatmap_axes.clear()
-        self.heatmap = heatmap_axes.imshow(new_slice, cmap=self.colour_map, interpolation="bilinear")
+        self.heatmap = heatmap_axes.imshow(
+            new_slice, cmap=self.colour_map, interpolation="bilinear",
+            vmin=self.vmin, vmax=self.vmax,
+        )
         heatmap_axes.set_xticklabels([])
         heatmap_axes.set_yticklabels([])
+        print(val, slice_index, discrete_val, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
 
 
 def find_nearest(array, value):
@@ -335,6 +352,15 @@ if __name__ == "__main__":
         default=None,
         help=(
             "If present, only consider the job in the current directory's workspace"
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--save",
+        required=False,
+        action="store_true",
+        help=(
+            "Save the heatmap slices"
         ),
     )
     parser.add_argument(
@@ -436,8 +462,14 @@ if __name__ == "__main__":
         # Origin is in bottom left, but will be displayed as top right, so flip the
         # array:
         #potential_array_3d = np.flip(potential_array_3d, axis=0)
-        print("Saving heatmap slices...")
-        scalar_map, colour_map = save_heatmap(potential_array_3d, z_range, job)
+        scalar_map, colour_map, vmin, vmax = get_colour_maps(potential_array_3d)
+        if args.save:
+            print("Saving heatmap slices...")
+            save_heatmap(
+                potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, job
+            )
         if args.interactive:
             print("Opening heatmap slices for interactive viewing...")
-            show_heatmap(potential_array_3d, z_range, colour_map, scalar_map, args)
+            show_heatmap(
+                potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, args
+            )
