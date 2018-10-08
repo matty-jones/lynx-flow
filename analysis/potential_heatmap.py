@@ -101,26 +101,19 @@ def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
 
 
 def create_neighbourlist_lookup(neighbour_list, mesh_size):
-    nlist = {}
+    nlist = {probe_ID: [] for probe_ID in range(mesh_size)}
     mesh_IDs = np.arange(mesh_size)
-    for probe_ID in np.arange(mesh_size):
-        # Numpy setdiff1d manipulation
-        neighbour_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
-        nlist[probe_ID] = np.setdiff1d(neighbour_IDs, mesh_IDs, assume_unique=True)
-
-        # # Set manipulation (this is about the same speed as above)
-        # neighbour_IDs = set(neighbour_list.index_j[neighbour_list.index_i == probe_ID])
-        # nlist[probe_ID] = list(neighbour_IDs - mesh_IDs)
-        # print(nlist[probe_ID])
-        # print("Set manipulation time =", t1 - t0)
-
-        # # Original
-        # crystal_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
-        # nlist[probe_ID] = [int(ID) for ID in crystal_IDs if ID >= mesh_size]
-
-        # # Array masking
-        # neighbour_IDs = neighbour_list.index_j[neighbour_list.index_i == probe_ID]
-        # nlist[probe_ID] = neighbour_IDs[neighbour_IDs >= mesh_size]
+    nlist_i, nlist_j = zip(*sorted(zip(neighbour_list.index_i, neighbour_list.index_j)))
+    # Find first non-mesh element of sorted nlist_i
+    first_non_mesh_index = nlist_i.index(mesh_size)
+    # Then truncate both nlist_i and nlist_j so that non-mesh elements are not included
+    nlist_i = np.array(nlist_i[:first_non_mesh_index])
+    nlist_j = np.array(nlist_j[:first_non_mesh_index])
+    # And now only consider pairs where nlist_j >= mesh_size
+    nlist_i = nlist_i[np.where(nlist_j >= mesh_size)]
+    nlist_j = nlist_j[np.where(nlist_j >= mesh_size)]
+    for nlist_coords, probe_ID in np.ndenumerate(nlist_i):
+        nlist[probe_ID].append(nlist_j[nlist_coords[0]])
     return nlist
 
 
