@@ -235,13 +235,13 @@ def get_z_range(job, z_step):
     crystal_offset = float(job.sp["crystal_separation"]) / 2.0
     crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
     dim_z = int(job.sp["dimensions"].split("x")[2])
-    # Calculated as the job.document["crystal_top_layer"]
-    z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
+    # # Calculated as the job.document["crystal_top_layer"]
+    # z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
     # Calculated as the job.document["crystal_top_edge"]
-    top_edge = crystal_offset + (dim_z * crystal_z / 2.0)
+    z_min = crystal_offset + (dim_z * crystal_z / 2.0)
     # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then updat3
     # this)
-    z_max = top_edge + 10.0
+    z_max = z_min + 10.0
     return np.arange(z_min, z_max, z_step)
 
 
