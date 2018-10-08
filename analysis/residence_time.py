@@ -253,8 +253,8 @@ def plot_residence_time_per_job(project, args):
         type1_AAIDs = list(molID_to_AAIDs.values())
         z_max = job.document["crystal_top_edge"] + args.tolerance
         z_min = job.document["crystal_bot_edge"] - args.tolerance
-        cryst_top = job.sp["crystal_separation"] / 2.0
-        cryst_bot = -job.sp["crystal_separation"] / 2.0
+        cryst_top = float(job.sp["crystal_separation"]) / 2.0
+        cryst_bot = -float(job.sp["crystal_separation"]) / 2.0
 
         residence_dict = {}
         for frame_no, frame in enumerate(trajectory):
