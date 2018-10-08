@@ -282,30 +282,34 @@ def save_heatmap(input_array, z_range, job):
 
 def show_heatmap(input_array, z_range, colour_map, scalar_map, args):
     fig, ax = plt.subplots()
-    heatmap = plt.imshow(input_array[:,:,0], cmap=colour_map, interpolation='bilinear')
+    heatmap = plt.imshow(input_array[:,:,0], cmap=colour_map, interpolation="bilinear")
     cbar = plt.colorbar(scalar_map, aspect=20)
-    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], facecolor='black')
-    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, args)
+    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], facecolor="black")
+    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, colour_map, args)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     plt.show()
 
 
 class create_slider(object):
-    def __init__(self, axis, z_range, input_array, heatmap, args):
+    def __init__(self, axis, z_range, input_array, heatmap, colour_map, args):
         z_min = np.min(z_range)
         z_max = np.max(z_range)
         self.z_range = z_range
         self.input_array = input_array
         self.heatmap = heatmap
-        self.slider = Slider(axis, r'$z$', z_min, z_max, valinit=z_min)
+        self.colour_map = colour_map
+        self.slider = Slider(axis, r"$z$", z_min, z_max, valinit=z_min)
         self.slider.on_changed(self.update)
 
     def update(self, val):
         slice_index, discrete_val = find_nearest(self.z_range, val)
         new_slice = self.input_array[:,:,slice_index]
-        self.heatmap.set_array(new_slice)
-        print(val, slice_index, discrete_val, np.sum(new_slice), np.sum(self.heatmap.get_array()))
+        heatmap_axes = self.heatmap.axes
+        heatmap_axes.clear()
+        self.heatmap = heatmap_axes.imshow(new_slice, cmap=self.colour_map, interpolation="bilinear")
+        heatmap_axes.set_xticklabels([])
+        heatmap_axes.set_yticklabels([])
 
 
 def find_nearest(array, value):
@@ -340,15 +344,15 @@ if __name__ == "__main__":
             "If present, only consider the job in the current directory's workspace"
         ),
     )
-    # parser.add_argument(
-    #     "-i",
-    #     "--interactive",
-    #     required=False,
-    #     action="store_true",
-    #     help=(
-    #         "Open the heatmap in interactive mode"
-    #     ),
-    # )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        required=False,
+        action="store_true",
+        help=(
+            "Open the heatmap in interactive mode"
+        ),
+    )
     parser.add_argument(
         "-z",
         "--z_step",
@@ -441,9 +445,6 @@ if __name__ == "__main__":
         #potential_array_3d = np.flip(potential_array_3d, axis=0)
         print("Saving heatmap slices...")
         scalar_map, colour_map = save_heatmap(potential_array_3d, z_range, job)
-        print("Opening heatmap slices for interactive viewing...")
-        show_heatmap(potential_array_3d, z_range, colour_map, scalar_map, args)
-        print("---======---")
-        for slice_index in range(potential_array_3d.shape[2]):
-            print(slice_index, np.sum(potential_array_3d[:,:,slice_index]))
-        print("---======---")
+        if args.interactive:
+            print("Opening heatmap slices for interactive viewing...")
+            show_heatmap(potential_array_3d, z_range, colour_map, scalar_map, args)
