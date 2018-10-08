@@ -223,20 +223,15 @@ def create_potential_array(potential_dict, mesh_shape, args):
             sorted(list(np.unique(mesh_posns_z)))
         )
     }
-    print(z_lookup)
-    print(mesh_posns_z)
     # Recast mesh_posns_z based on the lookup table
     mesh_posns_z = np.vectorize(z_lookup.get)(mesh_posns_z)
     # Finally, recombine the mesh_posns
-    #### THIS BIT DOESN'T WORK
-    print(np.hstack([mesh_posns_xy, mesh_posns_z]))
-    exit()
-
+    mesh_posns = np.column_stack((mesh_posns_xy, mesh_posns_z))
     for probe_ID, probe_posn in enumerate(mesh_posns):
         potential_array[probe_posn[0], probe_posn[1], probe_posn[2]] = mesh_potentials[probe_ID]
-    # As our origin is currently the bottom left (-large_x, -large_y), but array
-    # plotting subroutines have the origin in the top left, we need to flip the array
-    potential_array = np.flip(potential_array, 0)
+    # # As our origin is currently the bottom left (-large_x, -large_y), but array
+    # # plotting subroutines have the origin in the top left, we need to flip the array
+    # potential_array = np.flip(potential_array, 0)
     return potential_array
 
 
@@ -254,7 +249,7 @@ def get_z_range(job, z_step):
     return np.arange(z_min, z_max, z_step)
 
 
-def plot_heatmap(input_array, z_range, args):
+def save_heatmap(input_array, z_range, job):
     fig, ax = plt.subplots()
     # Reverse the colour map so that the `hot spots' show places where particles are
     # more likely to reside (i.e. lower potential energy)
@@ -264,12 +259,35 @@ def plot_heatmap(input_array, z_range, args):
         vmax=np.max(input_array),
     )
     scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=colour_map)
-    heatmap = plt.imshow(input_array[0], cmap=colour_map, interpolation='nearest')
     # Create the colour bar
     scalar_map.set_array(input_array.flatten())
     cbar = plt.colorbar(scalar_map, aspect=20)
-    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], axisbg='black')
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    save_dir = os.path.join(job.ws, "potential_heatmap")
+    os.makedirs(save_dir, exist_ok=True)
+    for z_val in range(input_array.shape[2]):
+        print("Saving slice {} of {}...".format(z_val + 1, len(z_range)), end="")
+        print("Slice sum =", np.sum(input_array[:,:,z_val]))
+        heatmap = plt.imshow(
+            input_array[:,:,z_val],
+            cmap=colour_map,
+            interpolation='bilinear',
+        )
+        plt.title("Z = {:.2f} A".format(z_range[z_val]))
+        plt.savefig(os.path.join(save_dir, "slice_{:04d}.png".format(z_val)))
+    plt.close()
+    return scalar_map, colour_map
+
+
+def show_heatmap(input_array, z_range, colour_map, scalar_map, args):
+    fig, ax = plt.subplots()
+    heatmap = plt.imshow(input_array[:,:,0], cmap=colour_map, interpolation='bilinear')
+    cbar = plt.colorbar(scalar_map, aspect=20)
+    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], facecolor='black')
     z_slider = create_slider(ax_zval, z_range, input_array, heatmap, args)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
     plt.show()
 
 
@@ -285,9 +303,9 @@ class create_slider(object):
 
     def update(self, val):
         slice_index, discrete_val = find_nearest(self.z_range, val)
-        new_slice = self.input_array[slice_index]
-        print(val, slice_index, discrete_val)
-        self.heatmap.set_data(new_slice)
+        new_slice = self.input_array[:,:,slice_index]
+        self.heatmap.set_array(new_slice)
+        print(val, slice_index, discrete_val, np.sum(new_slice), np.sum(self.heatmap.get_array()))
 
 
 def find_nearest(array, value):
@@ -417,9 +435,15 @@ if __name__ == "__main__":
             args.u_max,
         )
         potential_array_3d = create_potential_array(potential_dict, mesh_shape, args)
-        test = [frame[:5,:5] for frame in potential_array_3d]
-        for i in range(len(test)):
-            print("I =", i)
-            print(test)
-        exit()
-        plot_heatmap(np.array(potential_array_3d), z_range, args)
+        # Potential_array_3d is of the form [x, y, z], and needs to be indexed as such
+        # Origin is in bottom left, but will be displayed as top right, so flip the
+        # array:
+        #potential_array_3d = np.flip(potential_array_3d, axis=0)
+        print("Saving heatmap slices...")
+        scalar_map, colour_map = save_heatmap(potential_array_3d, z_range, job)
+        print("Opening heatmap slices for interactive viewing...")
+        show_heatmap(potential_array_3d, z_range, colour_map, scalar_map, args)
+        print("---======---")
+        for slice_index in range(potential_array_3d.shape[2]):
+            print(slice_index, np.sum(potential_array_3d[:,:,slice_index]))
+        print("---======---")
