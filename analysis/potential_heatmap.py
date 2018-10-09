@@ -277,7 +277,7 @@ def save_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, job):
             vmax=vmax,
         )
         plt.title("Z = {:.2f} A".format(z_range[z_val]))
-        plt.savefig(os.path.join(save_dir, "slice_{:04d}.png".format(z_val)))
+        plt.savefig(os.path.join(save_dir, "slice_{:04d}.png".format(z_val)), dpi=300)
     plt.close()
     return scalar_map, colour_map
 
