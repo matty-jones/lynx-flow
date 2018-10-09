@@ -12,6 +12,7 @@ import freud.locality
 import freud.box
 import rhaco.simulate
 from matplotlib.widgets import Slider
+import scipy.ndimage
 
 import time as T
 
@@ -239,7 +240,7 @@ def get_z_range(job, z_step):
     # z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
     # Calculated as the job.document["crystal_top_edge"]
     z_min = crystal_offset + (dim_z * crystal_z / 2.0)
-    # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then updat3
+    # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then update
     # this)
     z_max = z_min + 10.0
     return np.arange(z_min, z_max, z_step)
@@ -305,12 +306,28 @@ class create_slider(object):
         self.colour_map = colour_map
         self.vmin = vmin
         self.vmax = vmax
+        self.interp = args.interpolate
         self.slider = Slider(axis, r"$z$", z_min, z_max, valinit=z_min)
         self.slider.on_changed(self.update)
 
     def update(self, val):
-        slice_index, discrete_val = find_nearest(self.z_range, val)
-        new_slice = self.input_array[:,:,slice_index]
+        if self.interp:
+            left_index = np.where(self.z_range <= val)[0][-1]
+            right_index = np.where(self.z_range >= val)[0][0]
+            left_slice = self.input_array[:,:,left_index]
+            right_slice = self.input_array[:,:,right_index]
+            if np.isclose(val, self.z_range[left_index]):
+                interp_fraction = 0.0
+            elif np.isclose(val, self.z_range[right_index]):
+                interp_fraction = 1.0
+            else:
+                interp_fraction = val - self.z_range[left_index] / (self.z_range[right_index] - self.z_range[left_index])
+            new_slice = interpolate_matrices(left_slice, right_slice, interp_fraction)
+            print(val, left_index, right_index, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
+        else:
+            slice_index, discrete_val = find_nearest(self.z_range, val)
+            new_slice = self.input_array[:,:,slice_index]
+            print(val, slice_index, discrete_val, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
         heatmap_axes = self.heatmap.axes
         heatmap_axes.clear()
         self.heatmap = heatmap_axes.imshow(
@@ -319,7 +336,6 @@ class create_slider(object):
         )
         heatmap_axes.set_xticklabels([])
         heatmap_axes.set_yticklabels([])
-        print(val, slice_index, discrete_val, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
 
 
 def find_nearest(array, value):
@@ -328,14 +344,32 @@ def find_nearest(array, value):
     return index, array[index]
 
 
+def interpolate_matrices_fast(matrix_1, matrix_2, interp_point):
+    # This one should be a lot more efficient but it's a bit of a black box from
+    # stackoverflow and I can't work out how to get the shapes correct.
+    # Join the matrices into a single array
+    joined_matrix = np.r_["0,3", matrix_1, matrix_2]
+    interp_mesh_x, interp_mesh_y = np.meshgrid(
+        np.arange(matrix_1.shape[1]),
+        np.arange(matrix_1.shape[0]),
+    )
+    interp_vals = np.ones(matrix_1.shape) * interp_point, interp_mesh_x, interp_mesh_y
+    interpolated_array = scipy.ndimage.map_coordinates(joined_matrix, interp_vals, order=2).T
+    return interpolated_array
+
+
+def interpolate_matrices(matrix_1, matrix_2, interp_point):
+    # Interp_point is a float in the range (0, 1), and describes the % of matrix_2 we
+    # should include in the interpolated array
+    interpolated_array = ((1 - interp_point) * matrix_1) + (interp_point * matrix_2)
+    return interpolated_array
+
 
 def update(zval):
     global input_array
     z_val = s_zval.val
     z_slice = input_array[zval]
     img_plt.set_data(z_slice)
-
-
 
 
 def flatten(input_list):
@@ -364,12 +398,22 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-i",
-        "--interactive",
+        "-d",
+        "--draw_interactive",
         required=False,
         action="store_true",
         help=(
             "Open the heatmap in interactive mode"
+        ),
+    )
+    parser.add_argument(
+        "-i",
+        "--interpolate",
+        required=False,
+        action="store_true",
+        help=(
+            "Interpolate between z slices in the output image (only works when"
+            " --draw_interactive is set)"
         ),
     )
     parser.add_argument(
@@ -468,7 +512,7 @@ if __name__ == "__main__":
             save_heatmap(
                 potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, job
             )
-        if args.interactive:
+        if args.draw_interactive:
             print("Opening heatmap slices for interactive viewing...")
             show_heatmap(
                 potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, args
