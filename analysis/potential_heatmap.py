@@ -241,8 +241,9 @@ def get_z_range(job, z_step):
     # Calculated as the job.document["crystal_top_edge"]
     z_min = crystal_offset + (dim_z * crystal_z / 2.0)
     # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then update
-    # this)
-    z_max = z_min + 10.0
+    # this). The 10.0 gives a lot of zero frames at the high z, so take a guess at a
+    # sensible max distance
+    z_max = z_min + 7.0
     return np.arange(z_min, z_max, z_step)
 
 
@@ -321,13 +322,13 @@ class create_slider(object):
             elif np.isclose(val, self.z_range[right_index]):
                 interp_fraction = 1.0
             else:
-                interp_fraction = val - self.z_range[left_index] / (self.z_range[right_index] - self.z_range[left_index])
+                interp_fraction = (val - self.z_range[left_index]) / (self.z_range[right_index] - self.z_range[left_index])
             new_slice = interpolate_matrices(left_slice, right_slice, interp_fraction)
-            print(val, left_index, right_index, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
+            # print(val, left_index, right_index, interp_fraction, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
         else:
             slice_index, discrete_val = find_nearest(self.z_range, val)
             new_slice = self.input_array[:,:,slice_index]
-            print(val, slice_index, discrete_val, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
+            # print(val, slice_index, discrete_val, np.min(new_slice), np.max(new_slice), np.sum(new_slice))
         heatmap_axes = self.heatmap.axes
         heatmap_axes.clear()
         self.heatmap = heatmap_axes.imshow(
@@ -344,23 +345,9 @@ def find_nearest(array, value):
     return index, array[index]
 
 
-def interpolate_matrices_fast(matrix_1, matrix_2, interp_point):
-    # This one should be a lot more efficient but it's a bit of a black box from
-    # stackoverflow and I can't work out how to get the shapes correct.
-    # Join the matrices into a single array
-    joined_matrix = np.r_["0,3", matrix_1, matrix_2]
-    interp_mesh_x, interp_mesh_y = np.meshgrid(
-        np.arange(matrix_1.shape[1]),
-        np.arange(matrix_1.shape[0]),
-    )
-    interp_vals = np.ones(matrix_1.shape) * interp_point, interp_mesh_x, interp_mesh_y
-    interpolated_array = scipy.ndimage.map_coordinates(joined_matrix, interp_vals, order=2).T
-    return interpolated_array
-
-
 def interpolate_matrices(matrix_1, matrix_2, interp_point):
-    # Interp_point is a float in the range (0, 1), and describes the % of matrix_2 we
-    # should include in the interpolated array
+    # Interp_point is a float in the range (0, 1), and describes the frac of matrix_2
+    # we should include in the interpolated array
     interpolated_array = ((1 - interp_point) * matrix_1) + (interp_point * matrix_2)
     return interpolated_array
 
