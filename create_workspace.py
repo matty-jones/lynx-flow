@@ -32,7 +32,7 @@ def get_sim_parameters():
 
 
 if __name__ == "__main__":
-    project = signac.init_project("FirstParSweep")
+    project = signac.init_project("AgNP_Corundum_TempSweep")
     gen_param_names, gen_param_combinations = get_gen_parameters()
     sim_param_names, sim_param_combinations = get_sim_parameters()
     # Create the generate jobs

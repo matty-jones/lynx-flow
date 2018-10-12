@@ -1,5 +1,4 @@
 import csv
-import freud
 import gsd.fl
 import gsd.hoomd
 import os
@@ -8,18 +7,17 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 import numpy as np
 import argparse
+import itertools
+import operator
 from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter
+from rhaco.simulate import AVOGADRO, BOLTZMANN, KCAL_TO_J, AMU_TO_KG, ANG_TO_M
 
 
 """
-This module plots several RDFs for each job in the workspace.
-10 RDFs are plotted over time as the simulation progresses (data taken from the
-trajectory GSD), as well as an aggregated RDF describing the average over the
-entire simulation.
-Additionally, csv files are written for every RDF to permit subsequent analysis
-All 22 files (2 * 11) are written for each surface atom in the system (Mo, Nb,
-Te, V).
+This module plots the residence time distributions for each job in the workspace.
+Residency is defined as the time that a particular reactant molecule is located within
+a 1nm distance of the surface crystal (configurable by the --tolerance argument).
 """
 
 
@@ -129,7 +127,7 @@ def calc_COM(list_of_positions, list_of_atom_types=None, list_of_atom_masses=Non
         print("List of masses", list_of_atom_masses)
         print("Mass weighted", mass_weighted)
         print("Total mass", total_mass)
-        raise SystemError("WOBBEY")
+        raise SystemError("Error in mass calculation.")
     return mass_weighted / float(total_mass)
 
 
@@ -217,16 +215,11 @@ def get_type_positions(AAID_list, frame, crystal_min_z=None, crystal_max_z=None)
             type_ID = frame.particles.typeid[AAID]
             atom_type = frame.particles.types[type_ID]
             sublist_types.append(atom_type)
-        # Skip calculating the COM if none of the atoms in this molecule/sublist
-        # have satisfied the crystal max and min conditions
-        if len(sublist_positions) > 0:
-            type_positions.append(
-                calc_COM(sublist_positions, list_of_atom_types=sublist_types)
-            )
+        type_positions.append(calc_COM(sublist_positions, list_of_atom_types=sublist_types))
     return np.array(type_positions)
 
 
-def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_by_mol=False, type2_by_mol=False):
+def plot_residence_time_per_job(project, args):
     for job in project:
         if args.job is not None:
             if job.get_id() != args.job:
@@ -237,77 +230,38 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_b
                 continue
         print("\nConsidering job", job.ws)
         print(
-            "".join(["Calculating RDFs between ", type1_name, "-", type2_name, "..."])
+            "".join(["Calculating residence times for carbon-containing molecules..."])
         )
-        save_dir = os.path.join(job.ws, "RDFs")
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
         gsd_file_name = os.path.join(job.ws, "output_traj.gsd")
         try:
             gsd_file = gsd.fl.GSDFile(gsd_file_name, "rb")
         except OSError:
             print(gsd_file_name, "not found. Skipping...")
             continue
+        if not args.overwrite:
+            # Skip the calculation if the residence times have already been calculated
+            try:
+                job.document["mean_residence_time"]
+                job.document["mean_residence_time_error"]
+                print("Mean residence time already calculated, skipping...")
+                continue
+            except KeyError:
+                pass
         trajectory = gsd.hoomd.HOOMDTrajectory(gsd_file)
-        sim_box = trajectory[0].configuration.box[:3]
-        av_rdf = freud.density.RDF(rmax=r_max, dr=0.1)
-        av_rdf.resetRDF()
-        type1_ID = trajectory[0].particles.types.index(type1_name)
-        type2_ID = trajectory[0].particles.types.index(type2_name)
+        type1_ID = trajectory[0].particles.types.index(args.atom_type)
+        molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
+        type1_AAIDs = list(molID_to_AAIDs.values())
+        z_max = job.document["crystal_top_edge"] + args.tolerance
+        z_min = job.document["crystal_bot_edge"] - args.tolerance
+        cryst_top = float(job.sp["crystal_separation"]) / 2.0
+        cryst_bot = -float(job.sp["crystal_separation"]) / 2.0
 
-        print("Splitting Molecules...")
-        # AAID_to_molID, molID_to_AAIDs = split_molecules(trajectory[0])
-        # Split_molecules is super fast (because the bond list is already a lookup table).
-        # instead of running it once and then iterating through every AAID to find the molecules
-        # we want, change split_molecules to also accept an atom type.
-        # Then just have it return [[mol1_atom1, mol1_atom2,...], [mol2_atom1, mol2_atom2,...], ...]
-        # which is type1_AAIDs.
-
-
-
-        if type1_by_mol is True:
-            print("Determining molecules containing type_1...")
-            molID_to_AAIDs = split_molecules(trajectory[0], type1_ID)
-            type1_AAIDs = list(molID_to_AAIDs.values())
-            # OLD CODE, SUPER SLOW
-            # # Return AAIDs for all atoms in the same molecule, if that molecule includes
-            # # a type1_ID atom
-            # type1_AAIDs = []
-            # mols_considered = []
-            # for AAID, molID in enumerate(AAID_to_molID):
-            #     if trajectory[0].particles.typeid[AAID] == type1_ID:
-            #         if molID in mols_considered:
-            #             continue
-            #         mols_considered.append(molID)
-            #         AAIDs_in_mol = molID_to_AAIDs[molID]
-            #         type1_AAIDs.append(AAIDs_in_mol)
-        else:
-            type1_AAIDs = [[AAID] for AAID in np.where(trajectory[0].particles.typeid == type1_ID)[0]]
-
-        if type2_by_mol is True:
-            print("Determining molecules containing type_2...")
-            molID_to_AAIDs = split_molecules(trajectory[0], type2_ID)
-            type2_AAIDs = list(molID_to_AAIDs.values())
-            # Return AAIDs for all atoms in the same molecule, if that molecule includes
-            # a type1_ID atom
-            # OLD CODE, SUPER SLOW
-            # type2_AAIDs = []
-            # mols_considered = []
-            # for AAID, molID in enumerate(AAID_to_molID):
-            #     if trajectory[0].particles.typeid[AAID] == type2_ID:
-            #         if molID in mols_considered:
-            #             continue
-            #         mols_considered.append(molID)
-            #         AAIDs_in_mol = molID_to_AAIDs[molID]
-            #         type2_AAIDs.append(AAIDs_in_mol)
-        else:
-            type2_AAIDs = [[AAID] for AAID in np.where(trajectory[0].particles.typeid == type2_ID)[0]]
-
+        residence_dict = {}
         for frame_no, frame in enumerate(trajectory):
             print(
                 "".join(
                     [
-                        "\rCalculating RDF for frame ",
+                        "\rCalculating molecule residence for frame ",
                         str(frame_no + 1),
                         " of ",
                         str(len(trajectory)),
@@ -315,65 +269,98 @@ def plot_rdf(project, type1_name, type2_name, args, r_max=20, stride=50, type1_b
                 ),
                 end=" ",
             )
-            frame_rdf = freud.density.RDF(rmax=r_max, dr=0.1)
-            frame_rdf.resetRDF()
-            # In case box size changes
-            box = frame.configuration.box
-            freud_box = freud.box.Box(Lx=box[0], Ly=box[1], Lz=box[2])
-
             type1_pos = get_type_positions(type1_AAIDs, frame)
-            type2_pos = get_type_positions(
-                type2_AAIDs,
-                frame,
-                crystal_min_z=job.document["crystal_bot_layer"],
-                crystal_max_z=job.document["crystal_top_layer"],
-            )
-            av_rdf.accumulate(freud_box, type1_pos, type2_pos)
-            if frame_no % stride == 0:
-                print(
-                    "".join(
-                        [
-                            "\rSaving RDF image for frame ",
-                            str(frame_no + 1),
-                            " of ",
-                            str(len(trajectory)),
-                        ]
-                    ),
-                    end=" ",
-                )
-                frame_rdf.compute(freud_box, type1_pos, type2_pos)
-                frame_rdf_title = "".join(
-                    ["RDF_", type1_name, "-", type2_name, "_{:03d}".format(frame_no)]
-                )
-                with open(
-                    os.path.join(save_dir, frame_rdf_title + ".csv"), "w+"
-                ) as csv_file:
-                    writer = csv.writer(csv_file)
-                    writer.writerow(["r", "g(r)"])
-                    for r, g_r in zip(frame_rdf.getR(), frame_rdf.getRDF()):
-                        writer.writerow([r, g_r])
-                plt.figure()
-                plt.title(frame_rdf_title)
-                plt.plot(frame_rdf.getR(), frame_rdf.getRDF())
-                plt.xlabel("r (Ang)")
-                plt.ylabel("RDF (Arb. U.)")
-                plt.savefig(os.path.join(save_dir, frame_rdf_title + ".pdf"))
-                plt.close()
-        print("\rCalculating RDF averaged over all frames", end=" ")
-        av_rdf_title = "RDF_" + type1_name + "-" + type2_name + "_Av"
-        with open(os.path.join(save_dir, av_rdf_title + ".csv"), "w+") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(["r", "g(r)"])
-            for r, g_r in zip(av_rdf.getR(), av_rdf.getRDF()):
-                writer.writerow([r, g_r])
-        plt.figure()
-        plt.title(av_rdf_title)
-        plt.plot(av_rdf.getR(), av_rdf.getRDF())
-        plt.xlabel("r (Ang)")
-        plt.ylabel("RDF (Arb. U.)")
-        plt.savefig(os.path.join(save_dir, av_rdf_title + ".pdf"))
-        plt.close()
+            # Brute force approach, check all mols every frame
+            for mol_ID, position in enumerate(type1_pos):
+                if ((position[2] < z_max) and (position[2] > cryst_top)) or (
+                    (position[2] > z_min) and (position[2] < cryst_bot)
+                ):
+                    # Molecule is residing
+                    # The extra check for cryst_top and cryst_bot comes from sometimes
+                    # at high temperatures and taus, the reactants can end up in the
+                    # middle of the box (between the crystal planes), where they will
+                    # always be listed as residing, messing up the stats
+                    if mol_ID in residence_dict:
+                        residence_dict[mol_ID].append(frame_no)
+                    else:
+                        residence_dict[mol_ID] = [frame_no]
         print("")
+        # Turn the residence dictionary into a histogram of residence frames
+        residence_frames = []
+        for frames in residence_dict.values():
+            for _, group in itertools.groupby(enumerate(frames), lambda ix: ix[0] - ix[1]):
+                # Slice the list into consecutive chunks
+                slice_list = list(map(operator.itemgetter(1), group))
+                # Append the residence_frames with the length of each chunk
+                residence_frames.append(len(slice_list))
+        # Convert frames to times
+        residence_times = calculate_residence_times(residence_frames, job)
+        mean_residence_time = np.mean(residence_times)
+        residence_time_error = np.std(residence_times) / np.sqrt(len(residence_times))
+        mean_string = r"{:.2E} $\pm$ {:.1E}".format(mean_residence_time, residence_time_error)
+        print("Mean residence time ==", mean_string)
+        # Now plot the residence histogram
+        plt.clf()
+        plt.hist(residence_times / 1E-9, bins=20)
+        plt.xlabel("Residence (ns)")
+        plt.ylabel("Frequency (Molecules)")
+        plt.title(mean_string)
+        plt.savefig(os.path.join(job.ws, "residence_time.pdf"))
+        job.document["mean_residence_time"] = mean_residence_time
+        job.document["mean_residence_time_error"] = residence_time_error
+
+
+def calculate_residence_times(residence_frames, job):
+    # Firstly, how many timesteps does one frame equal?
+    # Rhaco dumps either 500 evenly-distributed frames across the whole simulation
+    # or one frame per timestep - whichever is longer
+    frame_period_timesteps = max([int(int(job.statepoint["run_time"]) / 500), 1])
+    # Now multiply this by the timestep to get the period in hoomd time units
+    frame_period_dimless = frame_period_timesteps * job.statepoint["timestep"]
+    # Now calculate the dimensionless time in SI to get residence time
+    mass_factor = 1.0 * AMU_TO_KG
+    distance_factor = job.statepoint.get("distance_scale_unit", 1.0) * ANG_TO_M
+    energy_factor = job.statepoint.get("energy_scale_unit", 1.0) * KCAL_TO_J / AVOGADRO
+    dimless_time_factor = np.sqrt((mass_factor * (distance_factor)**2) / energy_factor)
+    # Multiply the factors to get the frame_period in SI
+    frame_period_SI = frame_period_dimless * dimless_time_factor
+    # Multiply this by residence_frames to get the residence_times
+    return frame_period_SI * np.array(residence_frames)
+
+
+def plot_residence_time_vs_temp(project):
+    temperatures = {}
+    residence_times = {}
+    for job in project:
+        if "job_type" in job.sp:
+            if job.sp.job_type == "parent":
+                continue
+        dimensions = job.sp["dimensions"]
+        temperature = job.sp["temperature"]
+        z_size = job.sp["z_reactor_size"]
+        mean_res_time = job.document["mean_residence_time"]
+        mean_res_time_err = job.document["mean_residence_time_error"]
+        identify_string = "".join(["dims", str(dimensions), "z_size", str(z_size)])
+        if identify_string not in temperatures:
+            temperatures[identify_string] = []
+            residence_times[identify_string] = []
+        temperatures[identify_string].append(temperature)
+        residence_times[identify_string].append([mean_res_time, mean_res_time_err])
+    for key, temp_vals in temperatures.items():
+        res_time_vals = residence_times[key]
+        temp_vals, res_time_vals_combined = zip(*sorted(zip(temp_vals, res_time_vals)))
+        mean_time, error = zip(*res_time_vals_combined)
+        plt.clf()
+        plt.errorbar(temp_vals, np.array(mean_time)/1E-12, yerr=np.array(error)/1E-12)
+        plt.xlabel("Temperature (K)")
+        plt.ylabel("Mean residence time (ps)")
+        fig_name = "".join(["../outputs/", key, "_res_time.pdf"])
+        try:
+            plt.savefig(fig_name)
+        except FileNotFoundError:
+            os.makedirs("../outputs")
+            plt.savefig(fig_name)
+        print("Figure saved as", fig_name)
 
 
 if __name__ == "__main__":
@@ -389,6 +376,28 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "-a",
+        "--atom_type",
+        type=str,
+        required=False,
+        default="C",
+        help=(
+            "Find the residence times of molecules containing this type of atom."
+        ),
+    )
+    parser.add_argument(
+        "-t",
+        "--tolerance",
+        type=float,
+        required=False,
+        default=10.0,
+        help=(
+            "If a molecule containing args.atom_type has a centre-of-mass location"
+            " within args.tolerance of the surface, it is considered as residing on"
+            " the surface."
+        ),
+    )
+    parser.add_argument(
         "-o",
         "--overwrite",
         required=False,
@@ -400,12 +409,9 @@ if __name__ == "__main__":
     )
     args, directory_list = parser.parse_known_args()
     project = signac.get_project("../")
-    # Find crystal extents for each job in the project
+    plt.figure()
+    # Find the crystal extents and append them to the job documents
     find_crystal_extents_z(project, args)
-    surface_atom_types = []
-    for stoic_dict_str, _ in project.groupby('stoichiometry'):
-        surface_atom_types += list(eval(stoic_dict_str).keys())
-    surface_atom_types = list(set(surface_atom_types))
-    for atom_type in surface_atom_types:
-        # Plot RDF variation
-        plot_rdf(project, "C", atom_type, args, type1_by_mol=True)
+    plot_residence_time_per_job(project, args)
+    if args.job is None:
+        plot_residence_time_vs_temp(project)

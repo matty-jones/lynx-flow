@@ -24,19 +24,31 @@ def extract_av_tps(file_name):
     return None
 
 
+def flatten(input_list):
+    return [item for sublist in input_list for item in sublist]
+
+
 def plot_tpses(project):
+    schema = project.detect_schema()
     colours = pl.cm.plasma(np.linspace(0, 1, 4))
-    for dimension in ["10x10x1", "10x10x2", "10x10x3"]:
+    for dimension in flatten(list(schema["dimensions"].values())):
         print("Creating plot for dimensions =", dimension)
         plt.figure()
-        for index, z_reactor_size in enumerate([10, 15, 20, 25]):
+        for index, z_reactor_size in enumerate(flatten(list(schema["z_reactor_size"].values()))):
             print("Plotting line for reactor size =", z_reactor_size)
             temperatures = []
             tpses = []
             for job in project.find_jobs(
-                {"dimensions": dimension, "z_reactor_size": z_reactor_size}
+                {
+                    "dimensions": dimension,
+                    "z_reactor_size": z_reactor_size,
+                    "job_type": "child"
+                }
             ):
-                tps = extract_av_tps(os.path.join(job.ws, "stdout.o"))
+                try:
+                    tps = extract_av_tps(os.path.join(job.ws, "hoomd_stdout.log"))
+                except FileNotFoundError:
+                    tps = extract_av_tps(os.path.join(job.ws, "stdout.o"))
                 temperatures.append(job.sp()["temperature"])
                 tpses.append(tps)
             temperatures, tpses = zip(*sorted(zip(temperatures, tpses)))
@@ -50,7 +62,11 @@ def plot_tpses(project):
         plt.ylabel("TPS (Arb. U.)")
         plt.title("Dims = " + dimension)
         plt.legend(prop={"size": 10})
-        plt.savefig("../output_figures/tps_" + dimension + ".pdf")
+        try:
+            plt.savefig("../outputs/tps_" + dimension + ".pdf")
+        except FileNotFoundError:
+            os.makedirs("../outputs")
+            plt.savefig("../outputs/tps_" + dimension + ".pdf")
         plt.close()
 
 

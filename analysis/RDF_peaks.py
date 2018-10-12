@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 import pandas as pd
 import numpy as np
-from scipy.signal import argrelextrema
+import scipy.signal as signal
 from scipy.ndimage import gaussian_filter
 
 """
@@ -42,24 +42,42 @@ def get_first_peak(project, surface_atom_type=None):
         plt.xlabel("r (Ang)")
         plt.ylabel("RDF (Arb. U.)")
         figure_file = csv_file_location.replace(".csv", "_smooth.pdf")
-        peaks = argrelextrema(smoothed_RDF, np.greater)
-        first_two_peaks = [RDF_Data["r"].values[x] for x in peaks[0][:2]]
+        peaks = signal.argrelextrema(smoothed_RDF, np.greater)
+        # Attempt 2: Use scipy.signal to find the peaks automatically based on the
+        # non-smoothed RDF
+        signal_peaks = signal.find_peaks_cwt(RDF_Data["g(r)"], np.arange(1, 10), noise_perc=20)
+        signal_peak_loc = [RDF_Data["r"][i] for i in signal_peaks]
+        signal_peak_val = [RDF_Data["g(r)"][i] for i in signal_peaks]
+        # Hardcode note: Only peaks with RDF > 0.1 are classified as peaks
+        first_two_peaks = []
+        for peak_index, peak_val in enumerate(signal_peak_val):
+            # Sometimes scipy finds 2 peaks right on top of each other.
+            if len(first_two_peaks) > 0:
+                prev_loc = first_two_peaks[-1][0]
+                new_loc = signal_peak_loc[peak_index]
+                # Skip this peak if it's within 1A of the previous one
+                if new_loc - prev_loc <= 1.0:
+                    continue
+            if peak_val > 0.1:
+                first_two_peaks.append([signal_peak_loc[peak_index], peak_val])
+
+            if len(first_two_peaks) == 2:
+                break
         if len(first_two_peaks) == 1:
-            title = "Peaks @ [{:.2f}]".format(*first_two_peaks)
+            title = "Peaks @ [{:.2f}]".format(first_two_peaks[0][0])
         else:
-            title = "Peaks @ [{:.2f}, {:.2f}]".format(*first_two_peaks)
+            title = "Peaks @ [{:.2f}, {:.2f}]".format(*[peak[0] for peak in first_two_peaks])
         plt.title(title)
         try:
             # Update job document with the first peak data
-            first_peak = [RDF_Data["r"].values[peaks[0][0]], smoothed_RDF[peaks[0][0]]]
-            job.document["".join(["RDF_first_peak_", surface_atom_type])] = first_peak
+            job.document["".join(["RDF_first_peak_", surface_atom_type])] = first_two_peaks[0]
             # Update job document with the second peak data
-            second_peak = [RDF_Data["r"].values[peaks[0][1]], smoothed_RDF[peaks[0][1]]]
-            job.document["".join(["RDF_second_peak_", surface_atom_type])] = second_peak
+            job.document["".join(["RDF_second_peak_", surface_atom_type])] = first_two_peaks[1]
         except IndexError:
-            print("Only", len(peaks), "peaks found.")
+            print("Only", len(signal_peaks), "peaks found.")
             print("Check", figure_file, "for more details")
             pass
+        plt.scatter([peak[0] for peak in first_two_peaks], [peak[1] for peak in first_two_peaks], c="g", s=100.0, marker="x", zorder=10)
         plt.savefig(figure_file)
         plt.close()
 
