@@ -291,21 +291,80 @@ def save_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, job):
     return scalar_map, colour_map
 
 
-def show_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, args):
-    fig, ax = plt.subplots()
-    heatmap = plt.imshow(
+def show_heatmap(input_array, z_range, colour_map, scalar_map, vmin, vmax, box_dims, crystal_posns, args):
+    fig = plt.figure(figsize=(14,7))
+    # Plot the heatmap as a function of z on the left
+    heatmap_ax = fig.add_subplot(121)
+    heatmap = heatmap_ax.imshow(
         input_array[:,:,0], cmap=colour_map, interpolation="bilinear",
         vmin=vmin, vmax=vmax,
     )
     cbar = plt.colorbar(scalar_map, aspect=20)
-    ax_zval = plt.axes([0.2, 0.03, 0.4, 0.03], facecolor="black")
-    z_slider = create_slider(ax_zval, z_range, input_array, heatmap, colour_map, vmin, vmax, args)
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
+    ax_zval = plt.axes([0.03, 0.03, 0.28, 0.03], facecolor="black")
+    z_slider = create_z_slider(ax_zval, z_range, input_array, heatmap, colour_map, vmin, vmax, args)
+    heatmap_ax.set_xticklabels([])
+    heatmap_ax.set_yticklabels([])
+    # Plot the 3D isosurface on the right
+    verts, faces, _, _ = skimage.measure.marching_cubes_lewiner(
+        input_array,
+        0.0,
+        spacing=(args.mesh_spacing, args.mesh_spacing, args.z_step),
+    )
+    # Shift all of the verts to have everything in the centre with the right z_range
+    verts += np.array([-box_dims[0]/2.0, -box_dims[1]/2.0, np.min(z_range)])
+    isosurface_ax = fig.add_subplot(122, projection="3d")
+    isosurface = isosurface_ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2], cmap='Blues', lw=1)
+    # Find indices of values where crystal_posns[z] >= np.min(z_range)
+    atoms_in_range = np.where(crystal_posns[:, 2] >= np.min(z_range))
+    isosurface_ax.scatter(
+        crystal_posns[:,0][atoms_in_range],
+        crystal_posns[:,1][atoms_in_range],
+        crystal_posns[:,2][atoms_in_range],
+        s=20,
+        c="r",
+    )
+    ax_potn = plt.axes([0.60, 0.03, 0.28, 0.03], facecolor="black")
+    potn_slider = create_potn_slider(ax_potn, z_range, input_array, isosurface_ax, box_dims, crystal_posns, atoms_in_range, args)
+    isosurface_ax.set_zlim(np.min(z_range), np.max(z_range))
     plt.show()
 
 
-class create_slider(object):
+class create_potn_slider(object):
+    def __init__(self, axis, z_range, input_array, isosurface, box_dims, crystal_posns, atoms_in_range, args):
+        self.isosurface_ax = isosurface
+        self.z_range = z_range
+        self.input_array = input_array
+        self.box_dims = box_dims
+        self.args = args
+        self.crystal_posns = crystal_posns
+        self.atoms_in_range = atoms_in_range
+        self.slider = Slider(axis, r"$U(r)$", np.min(input_array), np.max(input_array) - 0.01, valinit=0.0)
+        self.slider.on_changed(self.update)
+
+    def update(self, val):
+        # Plot the 3D isosurface on the right
+        verts, faces, _, _ = skimage.measure.marching_cubes_lewiner(
+            self.input_array,
+            val,
+            spacing=(self.args.mesh_spacing, self.args.mesh_spacing, self.args.z_step),
+        )
+        # Shift all of the verts to have everything in the centre with the right z_range
+        verts += np.array([-self.box_dims[0]/2.0, -self.box_dims[1]/2.0, np.min(self.z_range)])
+        # Clear the isosurface plot ready for the new one
+        self.isosurface_ax.clear()
+        self.isosurface_ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2], cmap='Blues', lw=1)
+        # Find indices of values where crystal_posns[z] >= np.min(z_range)
+        self.isosurface_ax.scatter(
+            self.crystal_posns[:,0][self.atoms_in_range],
+            self.crystal_posns[:,1][self.atoms_in_range],
+            self.crystal_posns[:,2][self.atoms_in_range],
+            s=20,
+            c="r",
+        )
+        self.isosurface_ax.set_zlim(np.min(self.z_range), np.max(self.z_range))
+
+
+class create_z_slider(object):
     def __init__(self, axis, z_range, input_array, heatmap, colour_map, vmin, vmax, args):
         z_min = np.min(z_range)
         z_max = np.max(z_range)
@@ -555,5 +614,5 @@ if __name__ == "__main__":
         if args.draw_interactive:
             print("Opening heatmap slices for interactive viewing...")
             show_heatmap(
-                potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, args
+                potential_array_3d, z_range, colour_map, scalar_map, vmin, vmax, box_dims, crystal_posns, args
             )
