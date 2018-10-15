@@ -6,6 +6,7 @@ import matplotlib.colors
 import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
+import mpl_toolkits.mplot3d as mp3
 import numpy as np
 import argparse
 import freud.locality
@@ -13,6 +14,7 @@ import freud.box
 import rhaco.simulate
 from matplotlib.widgets import Slider
 import scipy.ndimage
+import skimage.measure
 
 import time as T
 
@@ -78,14 +80,8 @@ def create_mesh(morphology, z_range, args):
         + [0.0]
     )
     mesh_coords -= centroid
-    centroid = np.array(
-        [
-            sum(mesh_coords[:,axis]) / len(mesh_coords[:,axis]) for axis in range(2)
-        ]
-        + [0.0]
-    )
     mesh_types = [mesh_type] * len(mesh_coords)
-    return mesh_coords, mesh_types, mesh_shape
+    return mesh_coords, mesh_types, mesh_shape, box_dims
 
 
 def create_freud_nlist(job_frame, crystal_mesh_posns, mesh_size, cut_off):
@@ -232,18 +228,30 @@ def create_potential_array(potential_dict, mesh_shape, args):
     return potential_array
 
 
-def get_z_range(job, z_step):
+def get_z_range(job, z_step, z_min):
     crystal_offset = float(job.sp["crystal_separation"]) / 2.0
     crystal_z = float(job.sp["crystal_z"]) * 10.0 # convert from nm to ang
     dim_z = int(job.sp["dimensions"].split("x")[2])
     # # Calculated as the job.document["crystal_top_layer"]
     # z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
     # Calculated as the job.document["crystal_top_edge"]
-    z_min = crystal_offset + (dim_z * crystal_z / 2.0)
+    try:
+        z_min = float(z_min)
+    except ValueError:
+        if z_min.lower() == "layer":
+            print("Setting z_min to top layer of crystal...")
+            z_min = crystal_offset + ((dim_z - 2) * crystal_z / 2.0)
+        elif z_min.lower() == "edge":
+            print("Setting z_min to top edge of crystal...")
+            z_min = crystal_offset + (dim_z * crystal_z / 2.0)
+        else:
+            print("".join(["Specified z_min value", str(z_min), "not known. "
+                           "Setting z_min = 0.0..."]))
+            z_min = 0.0
     # FF pair cutoff is 10.0 (NOTE: Hardcoded into rhaco, if soft-coded then update
     # this). The 10.0 gives a lot of zero frames at the high z, so take a guess at a
-    # sensible max distance
-    z_max = z_min + 7.0
+    # sensible max distance (7.0 in this case)
+    z_max = crystal_offset + (dim_z * crystal_z / 2.0) + 7.0
     return np.arange(z_min, z_max, z_step)
 
 
@@ -363,6 +371,30 @@ def flatten(input_list):
     return [item for sublist in input_list for item in sublist]
 
 
+def plot_isosurface(array, args, z_range, crystal_posns, box_dims):
+    verts, faces, _, _ = skimage.measure.marching_cubes_lewiner(
+        array,
+        0.0,
+        spacing=(args.mesh_spacing, args.mesh_spacing, args.z_step),
+    )
+    # Shift all of the verts to have everything in the centre with the right z_range
+    verts += np.array([-box_dims[0]/2.0, -box_dims[1]/2.0, np.min(z_range)])
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2], cmap='Blues', lw=1)
+    # Find indices of values where crystal_posns[z] >= np.min(z_range)
+    atoms_in_range = np.where(crystal_posns[:, 2] >= np.min(z_range))
+    ax.scatter(
+        crystal_posns[:,0][atoms_in_range],
+        crystal_posns[:,1][atoms_in_range],
+        crystal_posns[:,2][atoms_in_range],
+        s=20,
+        c="r",
+        zorder=10,
+    )
+    plt.show()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -411,6 +443,17 @@ if __name__ == "__main__":
         default=0.5,
         help=(
             "The z step to use (in ang)"
+        ),
+    )
+    parser.add_argument(
+        "-z_min",
+        "--z_min",
+        type=str,
+        required=False,
+        default="layer",
+        help=(
+            "The z min to use (in ang). Can also be 'layer' or 'edge' to automatically"
+            " calculate the minimum z_value to use for the z_range."
         ),
     )
     parser.add_argument(
@@ -465,10 +508,14 @@ if __name__ == "__main__":
     for job in project:
         if (args.job is not None) and (job.get_id() != args.job):
             continue
-        z_range = get_z_range(job, args.z_step)
+        z_range = get_z_range(job, args.z_step, args.z_min)
         job_frame = get_job_frame(job)
         crystal_posns, crystal_types = get_surface_atoms(job, job_frame)
-        mesh_posns, mesh_types, mesh_shape = create_mesh(job_frame, z_range, args)
+        mesh_posns, mesh_types, mesh_shape, box_dims = create_mesh(
+            job_frame,
+            z_range,
+            args
+        )
         mesh_size = np.prod(mesh_shape)
         crystal_mesh_posns = np.vstack([mesh_posns, crystal_posns])
         crystal_mesh_types = np.hstack([mesh_types, crystal_types])
@@ -494,6 +541,12 @@ if __name__ == "__main__":
         # array:
         #potential_array_3d = np.flip(potential_array_3d, axis=0)
         scalar_map, colour_map, vmin, vmax = get_colour_maps(potential_array_3d)
+
+        # print(z_range)
+        # plot_isosurface(potential_array_3d, args, z_range, crystal_posns, box_dims)
+        # exit()
+
+
         if args.save:
             print("Saving heatmap slices...")
             save_heatmap(
