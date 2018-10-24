@@ -86,6 +86,7 @@ class fryEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("on-conda")
         js.writeline("source activate rhaco")
         js.writeline("module load cuda91")
+        js.writeline("export PYTHONUNBUFFERED='1'")
         return js
 
     @classmethod
@@ -125,6 +126,7 @@ class r2Environment(flow.environment.SlurmEnvironment):
 
         js.writeline("on-conda")
         js.writeline("source activate rhaco")
+        js.writeline("export PYTHONUNBUFFERED='1'")
         return js
 
     @classmethod
@@ -165,6 +167,7 @@ class kestrelEnvironment(flow.environment.SlurmEnvironment):
         js.writeline("on-conda")
         js.writeline("module load cuda91/toolkit/9.1.85")
         js.writeline("source activate rhaco")
+        js.writeline("export PYTHONUNBUFFERED='1'")
 
         return js
 
@@ -201,6 +204,7 @@ class blueWatersEnvironment(flow.environment.DefaultTorqueEnvironment):
         js.writeline('module load ccm')
         js.writeline('source /u/eot/anderso4/projects/rhaco/rhaco-virtualenv-rhaas/bin/activate') 
         js.writeline('export PYTHONPATH="/u/eot/anderso4/software/build-hoomd-on-blue-waters/hoomd_blue/build"')
+        js.writeline("export PYTHONUNBUFFERED='1'")
         return js
 
     @classmethod
@@ -236,6 +240,7 @@ class cometEnvironment(flow.environment.SlurmEnvironment):
 
         js.writeline("source activate rhaco")
         js.writeline("module load cuda/8.0")
+        js.writeline("export PYTHONUNBUFFERED='1'")
         return js
 
     @classmethod
@@ -271,6 +276,7 @@ class bridgesEnvironment(flow.environment.SlurmEnvironment):
 
         js.writeline("source activate rhaco")
         js.writeline("module load cuda/8.0")
+        js.writeline("export PYTHONUNBUFFERED='1'")
         return js
 
     @classmethod
