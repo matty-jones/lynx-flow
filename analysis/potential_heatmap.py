@@ -118,7 +118,7 @@ def calculate_potentials(
     job, nlist, n_probes, crystal_mesh_posns, crystal_mesh_types, u_max
 ):
     # Vectorised version
-    ff_coeffs = rhaco.simulate.get_coeffs(os.path.join(job.ws, "output.hoomdxml"))
+    ff_coeffs = rhaco.simulate.get_coeffs(os.path.join(job.ws, "output.hoomdxml"), {"forcefield": [[], []]})
     pair_coeffs = {coeff[0]: [coeff[1], coeff[2]] for coeff in ff_coeffs["pair_coeffs"]}
     if len(ff_coeffs["external_forcefields"]) > 0:
         raise SystemError("EXTERNAL FORCEFIELD DETECTED (E.G. EAM), CANNOT INTERPRET")
