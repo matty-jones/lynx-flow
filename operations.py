@@ -14,6 +14,7 @@ def generate(job):
         "crystal_bonds": "-b",
         "z_reactor_size": "-z",
         "reactant_composition": "-rc",
+        "reactant_rigid": "-rr",
         "reactant_num_mol": "-rn",
         "reactant_density": "-rd",
         "reactant_position": "-rp",
@@ -41,9 +42,10 @@ def simulate(job):
         "run_time": "-r",
         "timestep": "-s",
         "tau": "-t",
-        "omit_lj": "-o",
         "energy_scale_unit": "-e",
         "distance_scale_unit": "-d",
+        "nl_type": "-nl",
+        "r_cut": "-rc",
     }
     with job, open("hoomd_stdout.log", "w+") as hoomd_stdout:
         job_command = ["rhaco-run-hoomd"]
