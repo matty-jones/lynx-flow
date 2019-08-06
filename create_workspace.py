@@ -12,8 +12,8 @@ def get_gen_parameters():
     parameters["dimensions"] = ["16x16x1"]
     parameters["template"] = ["Ag_surface.pdb"]
     # parameters["crystal_separation"] = [40.0]
-    parameters["reactant_composition"] = ["{'Ag_5nm':1}"]
-    parameters["reactant_num_mol"] = [2]
+    parameters["reactant_composition"] = ["{'Ag_5nm':'pos'}"]
+    # parameters["reactant_num_mol"] = [2]
     parameters["reactant_position"] = ["[[-2.8, 0.0, 4.3], [2.8, 0.0, 4.3]]"]
     parameters["forcefield"] = ["['Ag.eam.fs']"]
     parameters["crystal_x"] = ["0.7810"]
@@ -26,10 +26,10 @@ def get_gen_parameters():
 def get_sim_parameters():
     parameters = OrderedDict()
     # Simulate Parameters
-    parameters["temperature"] = [1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350]
+    parameters["temperature"] = [1000]
     parameters["run_time"] = [1E8]
     parameters["omit_lj"] = ["Ag-Ag"]
-    parameters["tau"] = [5, 10, 15, 20]
+    parameters["tau"] = [5]
     parameters["energy_scale_unit"] = ["23.06"]
     parameters["job_type"] = ["child"]
     return list(parameters.keys()), list(itertools.product(*parameters.values()))
